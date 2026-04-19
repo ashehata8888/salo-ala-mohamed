@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;600;700&display=swap');
+
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.95);
+  background-color: #0b0f19;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[dir="rtl"] {
+  font-family: 'Amiri', 'Inter', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% -20%, #1a2a42, #0b0f19 80%);
+  background-attachment: fixed;
+}
+
+#root {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Glassmorphism styling */
+.glass-container {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 24px;
+  padding: 32px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transform: translateY(0);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.glass-container:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+  font-size: 2.5rem;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, #d4af37, #f3e5ab);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0px 4px 20px rgba(212, 175, 55, 0.2);
+}
+
+p.description {
+  font-size: 1.1rem;
+  color: #a0aec0;
+  margin-bottom: 2rem;
+}
+
+/* Sections */
+.settings-section {
+  text-align: start;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.settings-section.rtl {
+  text-align: right;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #718096;
+  margin-bottom: 0.8rem;
+  font-weight: 600;
+}
+
+.action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.action-row:last-child {
+  margin-bottom: 0;
+}
+
+.action-text {
+  flex: 1;
+}
+
+.action-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.action-desc {
+  font-size: 0.85rem;
+  color: #a0aec0;
+  margin: 0;
+  margin-top: 4px;
+}
+
+/* Buttons */
+button {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  background-color: #2b6cb0;
+  color: white;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px 0 rgba(43, 108, 176, 0.39);
+}
+button:hover {
+  background-color: #3182ce;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(43, 108, 176, 0.5);
+}
+button:active {
+  transform: translateY(0);
+}
+button:disabled {
+  background-color: #4a5568;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+button.success {
+  background-color: #2f855a;
+  box-shadow: 0 4px 14px 0 rgba(47, 133, 90, 0.39);
+}
+button.success:hover {
+  background-color: #38a169;
+}
+
+/* Language Toggle Custom Styling */
+.lang-toggle {
+  display: flex;
+  background: rgba(0,0,0,0.4);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.lang-btn {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  flex: 1;
+  padding: 0.5rem 1rem;
+  color: #a0aec0;
+}
+
+.lang-btn.active {
+  background: #d4af37;
+  color: #000;
+  box-shadow: 0 4px 14px 0 rgba(212, 175, 55, 0.39);
+}
+
+.lang-btn:hover:not(.active) {
+  background: rgba(255,255,255,0.05);
+  box-shadow: none;
+  transform: none;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(212, 175, 55, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0);
+  }
+}
