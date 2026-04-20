@@ -17,7 +17,8 @@ const resources = {
       "permission_granted": "الإذن مفعل",
       "salah_desc": "تطبيق لتذكيرك بالصلاة على النبي محمد ﷺ في كل مرة تفتح فيها هاتفك.",
       "preview": "معاينة التذكير",
-      "check_permission": "التحقق من الإذن"
+      "check_permission": "التحقق من الإذن",
+      "permission": "الإذن"
     }
   },
   en: {
@@ -34,7 +35,8 @@ const resources = {
       "permission_granted": "Permission Granted",
       "salah_desc": "An app to remind you to send blessings upon Prophet Muhammad ﷺ every time you unlock your device.",
       "preview": "Preview Reminder",
-      "check_permission": "Check Permission"
+      "check_permission": "Check Permission",
+      "permission" : "Permission"
     }
   }
 };

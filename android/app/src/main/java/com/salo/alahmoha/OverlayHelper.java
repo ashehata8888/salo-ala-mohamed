@@ -22,6 +22,30 @@ public class OverlayHelper {
     private static View overlayView;
     private static Runnable dismissRunnable;
     private static Handler handler = new Handler(Looper.getMainLooper());
+    private static boolean isRemoving = false;
+
+    private static int calculateDuration(Context context, int textLength) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        String speedPref = prefs.getString("popup_speed", "medium");
+        
+        int baseMs, charMultiplier;
+        switch(speedPref) {
+            case "fast":
+                baseMs = 1500;
+                charMultiplier = 50;
+                break;
+            case "slow":
+                baseMs = 5000;
+                charMultiplier = 130;
+                break;
+            case "medium":
+            default:
+                baseMs = 3000;
+                charMultiplier = 90;
+                break;
+        }
+        return Math.min(15000, baseMs + (textLength * charMultiplier));
+    }
 
     public static void showOverlay(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(context)) {
@@ -52,8 +76,7 @@ public class OverlayHelper {
                     } catch (JSONException e) {}
                 }
                 
-                int charCount = text.length();
-                int durationMs = Math.min(10000, 3000 + (charCount * 90));
+                int durationMs = calculateDuration(context, text.length());
                 
                 if (overlayView instanceof android.widget.RelativeLayout) {
                     android.widget.RelativeLayout frame = (android.widget.RelativeLayout) overlayView;
@@ -98,9 +121,7 @@ public class OverlayHelper {
                 }
             }
 
-            int charCount = text.length();
-            // Updated to accurately match the much shorter, tighter duration logic requested
-            int durationMs = Math.min(10000, 2000 + (charCount * 90));
+            int durationMs = calculateDuration(context, text.length());
 
             // Wrap everything in a RelativeLayout to force the glowing border to perfectly match the inner layout's height
             android.widget.RelativeLayout rootFrame = new android.widget.RelativeLayout(context);

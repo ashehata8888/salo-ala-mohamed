@@ -116,8 +116,8 @@ const OverlayPlugin = registerPlugin('OverlayPlugin');
 function App() {
   const { t, i18n } = useTranslation();
   const [hasPermission, setHasPermission] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
+  const [popupSpeed, setPopupSpeed] = useState('medium');
 
   const isRtl = i18n.language === 'ar';
 
@@ -135,6 +135,13 @@ function App() {
       } else {
         await Preferences.set({ key: 'enable_active_timer', value: 'true' });
       }
+
+      const speedPref = await Preferences.get({ key: 'popup_speed' });
+      if (speedPref.value !== null) {
+        setPopupSpeed(speedPref.value);
+      } else {
+        await Preferences.set({ key: 'popup_speed', value: 'medium' });
+      }
     })();
   }, []);
 
@@ -149,18 +156,33 @@ function App() {
     await Preferences.set({ key: 'enable_active_timer', value: newValue.toString() });
   };
 
+  const changeSpeed = async (speed) => {
+    setPopupSpeed(speed);
+    await Preferences.set({ key: 'popup_speed', value: speed });
+  };
+
   const checkPermission = async () => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
     try {
-      setIsChecking(true);
       const result = await OverlayPlugin.checkPermission();
       setHasPermission(result.granted);
     } catch (e) {
       console.error("Checking permission failed", e);
-    } finally {
-      setIsChecking(false);
     }
   };
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkPermission();
+      }
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const requestPermission = async () => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
@@ -204,6 +226,34 @@ function App() {
             </button>
           </div>
         </div>
+        
+        <div className="action-row" style={{ marginTop: '1rem' }}>
+          <div className="action-text">
+            <h3 className="action-title">{isRtl ? 'سرعة الإظهار' : 'Popup Speed'}</h3>
+            <p className="action-desc">{isRtl ? 'تحديد مدة بقاء التذكير' : 'Select how long the popup stays visible'}</p>
+          </div>
+          <div className="dropdown-container">
+            <select 
+              value={popupSpeed} 
+              onChange={(e) => changeSpeed(e.target.value)}
+              className="speed-dropdown"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                fontSize: '1rem',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="slow">{isRtl ? 'بطيء' : 'Slow'}</option>
+              <option value="medium">{isRtl ? 'متوسط' : 'Medium'}</option>
+              <option value="fast">{isRtl ? 'سريع' : 'Fast'}</option>
+            </select>
+          </div>
+        </div>
 
         <div className="action-row" style={{ marginTop: '1rem' }}>
           <div className="action-text">
@@ -221,8 +271,10 @@ function App() {
         </div>
       </div>
 
-      <div className={`settings-section ${isRtl ? 'rtl' : 'ltr'}`}>
-        <span className="section-label">Android Features</span>
+    { !hasPermission  && (
+
+   <div className={`settings-section ${isRtl ? 'rtl' : 'ltr'}`}>
+        <span className="section-label">{t('permission')}</span>
 
         <div className="action-row">
           <div className="action-text">
@@ -234,13 +286,14 @@ function App() {
         <div className="action-row" style={{ marginTop: '1rem' }}>
           <button 
             onClick={requestPermission} 
-            className={hasPermission ? 'success' : 'pulse'}
-            disabled={isChecking || hasPermission}
+            className="pulse"
+            disabled={hasPermission}
           >
-            {isChecking ? '...' : (hasPermission ? t('permission_granted') : t('grant_permission'))}
+            {t('grant_permission')}
           </button>
         </div>
       </div>
+     ) }
     </div>
   );
 }
