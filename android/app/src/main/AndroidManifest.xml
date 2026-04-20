@@ -34,7 +34,7 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
         <service 
-            android:name=".UnlockService" 
+            android:name=".SaloPrayerService" 
             android:exported="false" 
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="unlock_listener" />
@@ -43,6 +43,8 @@
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.salo.alahmoha.RESTART_SERVICE" />
             </intent-filter>
         </receiver>
     </application>
