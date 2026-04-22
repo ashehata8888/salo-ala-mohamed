@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.content.pm.ServiceInfo;
 import androidx.core.app.NotificationCompat;
 
 public class SaloPrayerService extends Service {
@@ -52,14 +53,19 @@ public class SaloPrayerService extends Service {
         }
 
         Notification notification = new NotificationCompat.Builder(this, "unlock_channel")
-                .setContentTitle("")
-                .setContentText("")
+                .setContentTitle("Salo Ala Mohamed")
+                .setContentText("Reminder service is active")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setOngoing(true)
                 .build();
 
         try {
-            startForeground(1, notification);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(1, notification);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

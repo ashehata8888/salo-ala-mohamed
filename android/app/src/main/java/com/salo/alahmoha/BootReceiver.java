@@ -11,8 +11,10 @@ public class BootReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || 
             "android.intent.action.QUICKBOOT_POWERON".equals(action) ||
+            Intent.ACTION_USER_PRESENT.equals(action) ||
             "com.salo.alahmoha.RESTART_SERVICE".equals(action)) {
             
+            android.util.Log.d("BootReceiver", "Reviving service on action: " + action);
             Intent serviceIntent = new Intent(context, SaloPrayerService.class);
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
