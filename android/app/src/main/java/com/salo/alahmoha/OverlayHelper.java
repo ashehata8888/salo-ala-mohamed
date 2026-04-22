@@ -140,6 +140,11 @@ public class OverlayHelper {
                     android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
                     new int[]{ Color.parseColor("#a8813a"), Color.parseColor("#ebd089"), Color.parseColor("#a8813a") }
             );
+            // Match the thickness of the moving white highlight (which uses 7f)
+            int staticBorderWidth = 7;
+            // Base static dark gold border applied to the container
+            gd.setStroke(staticBorderWidth, Color.parseColor("#7a5c1e"));
+            
             gd.setCornerRadius(50f);
             layout.setBackground(gd);
             layout.setGravity(Gravity.CENTER);
