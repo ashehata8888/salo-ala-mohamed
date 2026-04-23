@@ -17,3 +17,10 @@ Since modifying `.pbxproj` files directly via automation can corrupt your Xcode 
     - Add a new App Group: `group.com.salo.alahmoha`
     - Do the same for the `WidgetExtension` target, selecting the exact same App Group.
 11. Build and Run on a Simulator or real device! You can now add the "Salah Reminder" widget to your iOS home screen.
+
+## Final Checklist for Production
+- **Bundle Identifier**: Ensure your Bundle Identifier is set correctly in both the main App target and the WidgetExtension target.
+- **App Group ID**: The ID `group.com.salo.alahmoha` must be unique to your team/account in the Apple Developer portal. If you change it, make sure to update it in `WidgetExtension.swift` as well.
+- **Aesthetics**: The widget uses a premium dark-gold theme matching the app's Android popup.
+- **Offline Phrases**: The widget has 40+ beautiful prayer phrases embedded directly for offline use and variety.
+- **Battery Life**: The widget is optimized to update periodically (every 30-60 mins) to save battery.
