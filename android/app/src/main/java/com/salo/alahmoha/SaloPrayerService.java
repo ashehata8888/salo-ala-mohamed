@@ -53,11 +53,10 @@ public class SaloPrayerService extends Service {
         }
 
         Notification notification = new NotificationCompat.Builder(this, "unlock_channel")
-                .setContentTitle("Salo Ala Mohamed")
-                .setContentText("Reminder service is active")
+                .setContentTitle("")
+                .setContentText("")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
-                .setOngoing(true)
                 .build();
 
         try {
@@ -73,6 +72,7 @@ public class SaloPrayerService extends Service {
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_USER_PRESENT);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_USER_UNLOCKED);
         
         screenReceiver = new BroadcastReceiver() {
             @Override
@@ -81,8 +81,11 @@ public class SaloPrayerService extends Service {
                     // Debounce rapidly fired system broadcasts and fire instantly
                     unlockHandler.removeCallbacksAndMessages(null);
                     unlockHandler.post(() -> {
-                        OverlayHelper.showOverlay(context);
-                        resetTimer();
+                        try {
+                            showOverlayWithCooldown(context);
+                        } catch (Exception e) {
+                            android.util.Log.e("SaloPrayerService", "Error showing overlay on unlock", e);
+                        }
                     });
                 } else if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                     unlockHandler.removeCallbacksAndMessages(null);
@@ -92,7 +95,14 @@ public class SaloPrayerService extends Service {
         };
         registerReceiver(screenReceiver, filter);
         
-        resetTimer();
+        // resetTimer reads SharedPreferences which may not be available
+        // during Direct Boot (LOCKED_BOOT_COMPLETED). Safe to skip — the
+        // first USER_PRESENT unlock will trigger resetTimer via the receiver.
+        try {
+            resetTimer();
+        } catch (Exception e) {
+            android.util.Log.w("SaloPrayerService", "resetTimer skipped (Direct Boot)", e);
+        }
     }
 
     private void resetTimer() {
@@ -126,6 +136,18 @@ public class SaloPrayerService extends Service {
             if (manager != null) {
                 manager.createNotificationChannel(channel);
             }
+        }
+    }
+
+    private long lastShownTime = 0;
+    private static final long COOLDOWN_MS = 10000; // 10 seconds
+
+    private void showOverlayWithCooldown(Context context) {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastShownTime > COOLDOWN_MS) {
+            lastShownTime = currentTime;
+            OverlayHelper.showOverlay(context);
+            resetTimer();
         }
     }
 
