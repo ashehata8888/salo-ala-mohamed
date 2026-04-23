@@ -5,19 +5,20 @@ import { Preferences } from "@capacitor/preferences";
 const resources = {
   ar: {
     translation: {
-      "app_title": "صلوا على النبي",
+      "app_title": "صلِّ على سيدنا محمد ﷺ",
       "settings": "الإعدادات",
       "language": "اللغة",
       "arabic": "العربية",
       "english": "English",
       "salah_reminder": "اللهم صل وسلم على نبينا محمد",
-      "draw_over_apps": "تفعيل نافذة الفتح المنبثقة",
+      "draw_over_apps": "تفعيل النافذة",
       "draw_over_apps_desc": "يرجى تفعيل هذا الإذن لكي يتم إظهار التذكير عند فتح قفل الشاشة",
       "grant_permission": "منح الإذن",
       "permission_granted": "الإذن مفعل",
-      "salah_desc": "تطبيق لتذكيرك بالصلاة على النبي محمد ﷺ في كل مرة تفتح فيها هاتفك.",
+      "salah_desc": "تطبيق لتذكيرك بالصلاة على سيدنا محمد ﷺ \nفي كل مرة تفتح فيها هاتفك.",
       "preview": "معاينة التذكير",
-      "check_permission": "التحقق من الإذن"
+      "check_permission": "التحقق من الإذن",
+      "permission": "الإذن"
     }
   },
   en: {
@@ -34,25 +35,37 @@ const resources = {
       "permission_granted": "Permission Granted",
       "salah_desc": "An app to remind you to send blessings upon Prophet Muhammad ﷺ every time you unlock your device.",
       "preview": "Preview Reminder",
-      "check_permission": "Check Permission"
+      "check_permission": "Check Permission",
+      "permission": "Permission"
     }
   }
 };
 
-export const initI18n = async () => {
-  const { value } = await Preferences.get({ key: 'user_lang' });
-  const lng = value || 'ar'; // Default to Arabic
+// ── Read language synchronously from localStorage (instant, no async wait) ──
+const savedLang = localStorage.getItem('user_lang') ?? 'ar';
 
-  i18n
-    .use(initReactI18next)
-    .init({
-      resources,
-      lng: lng,
-      fallbackLng: "ar",
-      interpolation: {
-        escapeValue: false 
-      }
-    });
+// ── Initialize immediately and synchronously — no flash ──
+i18n
+  .use(initReactI18next)
+  .init({
+    resources,
+    lng: savedLang,
+    fallbackLng: 'ar',
+    interpolation: { escapeValue: false },
+  });
+
+// ── Sync: if native side wrote a different lang to Preferences, apply it ──
+export const syncLangToPreferences = async () => {
+  const { value } = await Preferences.get({ key: 'user_lang' });
+  if (value && value !== savedLang) {
+    localStorage.setItem('user_lang', value);
+    await i18n.changeLanguage(value);
+  }
+};
+
+// ── Called from main.tsx — runs sync after mount ──
+export const initI18n = async () => {
+  await syncLangToPreferences();
 };
 
 export default i18n;
