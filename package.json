@@ -15,7 +15,7 @@
     "clean": "rmdir /s /q dist android\\app\\build 2>nul || echo Clean complete",
     "clean:android": "cd android && gradlew clean",
     "rebuild": "npm run clean && npm install && npm run android:sync",
-    "bapk": "npm run build && npx cap sync android && cd android && gradlew.bat clean assembleDebug && cd .. && copy android\\app\\build\\outputs\\apk\\debug\\app-debug.apk client\\public\\downloads\\prophet-hand.apk",
+    "bapk": "npm run build && npx cap sync android && cd android && gradlew.bat clean assembleDebug && cd .. && copy android\\app\\build\\outputs\\apk\\debug\\app-debug.apk public\\saloAlaMohamed.apk",
     "devm": "adb wait-for-device && adb reverse tcp:8100 tcp:8100 && npm run build && npx cap sync && cd android && .\\gradlew.bat clean assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk"
   },
   "dependencies": {
