@@ -31,6 +31,11 @@ public class ServiceRestarterWorker extends Worker {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e instanceof android.app.ForegroundServiceStartNotAllowedException) {
+                // Do not retry if the system explicitly blocks starting the foreground service
+                // This happens when the app is in the background and not exempted from battery optimizations.
+                return Result.failure();
+            }
             return Result.retry();
         }
         return Result.success();

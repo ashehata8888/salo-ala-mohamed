@@ -20,6 +20,7 @@ function App() {
   const isRtl = i18n.language === "ar";
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isBatteryOptimized, setIsBatteryOptimized] = useState<boolean | null>(null);
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
   const [popupSpeed, setPopupSpeed] = useState("medium");
 
@@ -81,6 +82,9 @@ function App() {
         key: "overlay_permission_granted",
         value: result.granted.toString(),
       });
+
+      const batteryResult = await (OverlayPlugin as any).isBatteryOptimizationIgnored();
+      setIsBatteryOptimized(batteryResult.isIgnored);
     } catch (e) {
       console.error("Checking permission failed", e);
     }
@@ -108,6 +112,19 @@ function App() {
       });
     } catch (e) {
       console.error("Requesting permission failed", e);
+    }
+  };
+
+  const requestBatteryPermission = async () => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
+    try {
+      const result = await (OverlayPlugin as any).requestIgnoreBatteryOptimization();
+      if (result.requested) {
+        // Checking status directly might not be instant if they haven't answered the prompt yet,
+        // but visibilitychange event listener will re-check it when they come back to the app.
+      }
+    } catch (e) {
+      console.error("Requesting battery permission failed", e);
     }
   };
 
@@ -218,23 +235,49 @@ function App() {
       </div>
 
       {/* ── Permission section — only rendered when NOT granted ── */}
-      {!hasPermission && (
+      {(!hasPermission || isBatteryOptimized === false) && (
         <div className={`settings-section permission-section ${isRtl ? "rtl" : "ltr"}`}>
           <span className="section-label">{t("permission")}</span>
 
-          <div className="action-row">
-            <div className="action-text">
-              <h3 className="action-title">{t("draw_over_apps")}</h3>
-              <p className="action-desc">{t("draw_over_apps_desc")}</p>
-            </div>
-          </div>
+          {!hasPermission && (
+            <>
+              <div className="action-row">
+                <div className="action-text">
+                  <h3 className="action-title">{t("draw_over_apps")}</h3>
+                  <p className="action-desc">{t("draw_over_apps_desc")}</p>
+                </div>
+              </div>
+              <div className="action-row">
+                <button onClick={requestPermission} className="grant-btn pulse">
+                  <span className="btn-icon">🔓</span>
+                  {t("grant_permission")}
+                </button>
+              </div>
+            </>
+          )}
 
-          <div className="action-row">
-            <button onClick={requestPermission} className="grant-btn pulse">
-              <span className="btn-icon">🔓</span>
-              {t("grant_permission")}
-            </button>
-          </div>
+          {isBatteryOptimized === false && (
+            <>
+              <div className="action-row">
+                <div className="action-text">
+                  <h3 className="action-title">
+                    {isRtl ? "السماح بالعمل في الخلفية" : "Allow Background Activity"}
+                  </h3>
+                  <p className="action-desc">
+                    {isRtl 
+                      ? "يرجى تعطيل تحسين البطارية لضمان ظهور التذكير بشكل دائم." 
+                      : "Please disable battery optimization to ensure the reminder always works."}
+                  </p>
+                </div>
+              </div>
+              <div className="action-row">
+                <button onClick={requestBatteryPermission} className="grant-btn pulse">
+                  <span className="btn-icon">🔋</span>
+                  {isRtl ? "منح الصلاحية" : "Grant Permission"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
