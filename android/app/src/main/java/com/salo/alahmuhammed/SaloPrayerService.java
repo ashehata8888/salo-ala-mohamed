@@ -23,6 +23,7 @@ public class SaloPrayerService extends Service {
     private Handler timerHandler = new Handler(Looper.getMainLooper());
     private Handler unlockHandler = new Handler(Looper.getMainLooper());
     private final long ONE_HOUR_MS = 3600000;
+    private boolean skipNextPopup = true;
 
     private Runnable timerRunnable = new Runnable() {
         @Override
@@ -82,7 +83,19 @@ public class SaloPrayerService extends Service {
                     unlockHandler.removeCallbacksAndMessages(null);
                     unlockHandler.post(() -> {
                         try {
-                            showOverlayWithCooldown(context);
+                            android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                            boolean reducePopupFrequency = Boolean.parseBoolean(prefs.getString("reducePopupFrequency", "false"));
+                            
+                            if (reducePopupFrequency) {
+                                if (skipNextPopup) {
+                                    skipNextPopup = false;
+                                } else {
+                                    skipNextPopup = true;
+                                    showOverlayWithCooldown(context);
+                                }
+                            } else {
+                                showOverlayWithCooldown(context);
+                            }
                         } catch (Exception e) {
                             android.util.Log.e("SaloPrayerService", "Error showing overlay on unlock", e);
                         }
