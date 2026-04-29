@@ -1,4 +1,4 @@
-package com.salo.alahmoha;
+package com.salo.alahmuhammed;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -175,7 +175,7 @@ public class SaloPrayerService extends Service {
         super.onTaskRemoved(rootIntent);
         
         Intent restartIntent = new Intent(getApplicationContext(), BootReceiver.class);
-        restartIntent.setAction("com.salo.alahmoha.RESTART_SERVICE");
+        restartIntent.setAction("com.salo.alahmuhammed.RESTART_SERVICE");
         
         PendingIntent restartPendingIntent;
         int flags = PendingIntent.FLAG_ONE_SHOT;

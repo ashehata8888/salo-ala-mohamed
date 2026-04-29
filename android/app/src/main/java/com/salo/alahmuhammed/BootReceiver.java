@@ -1,4 +1,4 @@
-package com.salo.alahmoha;
+package com.salo.alahmuhammed;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -22,7 +22,7 @@ public class BootReceiver extends BroadcastReceiver {
             Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action) ||
             Intent.ACTION_USER_UNLOCKED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action) ||
-            "com.salo.alahmoha.RESTART_SERVICE".equals(action)) {
+            "com.salo.alahmuhammed.RESTART_SERVICE".equals(action)) {
 
             // Try direct start first (fastest path)
             try {

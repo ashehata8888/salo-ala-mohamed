@@ -371,7 +371,7 @@ struct Provider: TimelineProvider {
         let currentDate = Date()
         
         // Load User Preference
-        let sharedDefaults = UserDefaults(suiteName: "group.com.salo.alahmoha")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.salo.alahmuhammed")
         let lang = sharedDefaults?.string(forKey: "user_lang") ?? "ar"
         let isArabic = lang == "ar"
         

@@ -1,4 +1,4 @@
-package com.salo.alahmoha;
+package com.salo.alahmuhammed;
 
 import android.content.Intent;
 import android.net.Uri;

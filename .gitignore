@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 android/.gradle_cache/
+android/keystores/
+android/keystore.properties
