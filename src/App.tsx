@@ -27,6 +27,7 @@ function App() {
   const [isBatteryOptimized, setIsBatteryOptimized] = useState<boolean | null>(null);
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
   const [popupSpeed, setPopupSpeed] = useState("medium");
+  const [reduceFrequency, setReduceFrequency] = useState(false);
 
   // ── On mount: load persisted permission state immediately ──────────────────
   useEffect(() => {
@@ -61,6 +62,13 @@ function App() {
         setPopupSpeed(speedPref.value);
       } else {
         await Preferences.set({ key: "popup_speed", value: "medium" });
+      }
+
+      const reducePref = await Preferences.get({ key: "reducePopupFrequency" });
+      if (reducePref.value !== null) {
+        setReduceFrequency(reducePref.value === "true");
+      } else {
+        await Preferences.set({ key: "reducePopupFrequency", value: "false" });
       }
 
       // Sync static phrases to native layer
@@ -152,6 +160,13 @@ function App() {
     await Preferences.set({ key: "popup_speed", value: speed });
   };
 
+  // ── Frequency Toggle ───────────────────────────────────────────────────────
+  const handleToggleFrequency = async () => {
+    const newValue = !reduceFrequency;
+    setReduceFrequency(newValue);
+    await Preferences.set({ key: "reducePopupFrequency", value: newValue.toString() });
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   if (hasPermission === null) {
     return <div className="glass-container loading-shield" />;
@@ -236,7 +251,30 @@ function App() {
             <span className="toggle-thumb" />
           </button>
         </div>
+
+        {/* ── Popup Frequency Section ── */}
+        <div className="action-row">
+          <div className="action-text">
+            <h3 className="action-title">
+              {isRtl ? "تقليل مرات الظهور" : "Reduce Popup Frequency"}
+            </h3>
+            <p className="action-desc">
+              {isRtl
+                ? "إظهار التذكير مرة واحدة كل مرتين تفتح فيهم الشاشة."
+                : "Show the popup every second time you unlock your screen."}
+            </p>
+          </div>
+
+          <button
+            className={`toggle-btn ${reduceFrequency ? "toggle-on" : "toggle-off"}`}
+            onClick={handleToggleFrequency}
+          >
+            <span className="toggle-thumb" />
+          </button>
+        </div>
       </div>
+
+
 
       {/* ── Permission section — only rendered when NOT granted ── */}
       {isAndroid && (!hasPermission || isBatteryOptimized === false) && (
@@ -268,8 +306,8 @@ function App() {
                     {isRtl ? "السماح بالعمل في الخلفية" : "Allow Background Activity"}
                   </h3>
                   <p className="action-desc">
-                    {isRtl 
-                      ? "يرجى تعطيل تحسين البطارية لضمان ظهور التذكير بشكل دائم." 
+                    {isRtl
+                      ? "يرجى تعطيل تحسين البطارية لضمان ظهور التذكير بشكل دائم."
                       : "Please disable battery optimization to ensure the reminder always works."}
                   </p>
                 </div>
