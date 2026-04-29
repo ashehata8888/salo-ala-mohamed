@@ -8,6 +8,10 @@ import "./main.scss";
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 const OverlayPlugin = registerPlugin("OverlayPlugin");
 
+const platform = Capacitor.getPlatform();
+const isAndroid = platform === 'android';
+const isIos = platform === 'ios';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function getPhraseAtIndex(phrases: string[], index: number): string {
   if (!phrases.length) return "";
@@ -235,7 +239,7 @@ function App() {
       </div>
 
       {/* ── Permission section — only rendered when NOT granted ── */}
-      {(!hasPermission || isBatteryOptimized === false) && (
+      {isAndroid && (!hasPermission || isBatteryOptimized === false) && (
         <div className={`settings-section permission-section ${isRtl ? "rtl" : "ltr"}`}>
           <span className="section-label">{t("permission")}</span>
 
