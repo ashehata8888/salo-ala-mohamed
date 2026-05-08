@@ -28,6 +28,14 @@ function App() {
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
   const [popupSpeed, setPopupSpeed] = useState("medium");
   const [reduceFrequency, setReduceFrequency] = useState(false);
+  const [pauseUntil, setPauseUntil] = useState<number>(0);
+  const [selectedPauseDuration, setSelectedPauseDuration] = useState<string>("");
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // ── On mount: load persisted permission state immediately ──────────────────
   useEffect(() => {
@@ -71,6 +79,16 @@ function App() {
         await Preferences.set({ key: "reducePopupFrequency", value: "false" });
       }
 
+      const pausePref = await Preferences.get({ key: "pauseUntil" });
+      if (pausePref.value !== null) {
+        setPauseUntil(parseInt(pausePref.value, 10));
+      }
+
+      const pauseDurationPref = await Preferences.get({ key: "selectedPauseDuration" });
+      if (pauseDurationPref.value !== null) {
+        setSelectedPauseDuration(pauseDurationPref.value);
+      }
+
       // Sync static phrases to native layer
       await Preferences.set({
         key: "salah_phrases",
@@ -103,8 +121,18 @@ function App() {
   };
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") checkPermission();
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        checkPermission();
+        const pausePref = await Preferences.get({ key: "pauseUntil" });
+        if (pausePref.value !== null) {
+          setPauseUntil(parseInt(pausePref.value, 10));
+        }
+        const pauseDurationPref = await Preferences.get({ key: "selectedPauseDuration" });
+        if (pauseDurationPref.value !== null) {
+          setSelectedPauseDuration(pauseDurationPref.value);
+        }
+      }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -165,6 +193,24 @@ function App() {
     const newValue = !reduceFrequency;
     setReduceFrequency(newValue);
     await Preferences.set({ key: "reducePopupFrequency", value: newValue.toString() });
+  };
+
+  // ── Deep Sleep ─────────────────────────────────────────────────────────────
+  const handlePauseOverlay = async (minutes: number) => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+      alert("This feature is only available on Android native app.");
+      return;
+    }
+    try {
+      const result = await (OverlayPlugin as any).pauseOverlay({ minutes });
+      if (result.success) {
+        setPauseUntil(result.pauseUntil);
+        setSelectedPauseDuration(minutes.toString());
+        await Preferences.set({ key: "selectedPauseDuration", value: minutes.toString() });
+      }
+    } catch (e) {
+      console.error("Failed to pause overlay", e);
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -260,8 +306,8 @@ function App() {
             </h3>
             <p className="action-desc">
               {isRtl
-                ? "إظهار التذكير مرة واحدة كل مرتين تفتح فيهم الشاشة."
-                : "Show the popup every second time you unlock your screen."}
+                ? "إظهار التذكير كل مرتين تفتح فيهم هاتفك"
+                : "Show the popup every second time you unlock your mobile"}
             </p>
           </div>
 
@@ -272,9 +318,46 @@ function App() {
             <span className="toggle-thumb" />
           </button>
         </div>
+
+        {/* ── Temporary Pause Section ── */}
+
+        <div className="action-row">
+          <div className="action-text">
+            <h3 className="action-title">
+              {isRtl ? "إيقاف مؤقت لمدة" : "Temp Pause for"}
+            </h3>
+            {currentTime < pauseUntil ? (
+              <p className="action-desc status">
+               <label>   {isRtl ? "الحالة:" : "Status:"}</label> {currentTime < pauseUntil ? (isRtl ? "متوقف مؤقتاً" : "Paused") : (isRtl ? "نشط" : "Active")}
+              
+                {/* {isRtl ? "سيستأنف في " : "Resumes in "}
+                {Math.ceil((pauseUntil - currentTime) / 60000)} {isRtl ? "دقيقة" : "min"} */}
+              </p>
+            ) : (
+              <p className="action-desc">
+                {isRtl ? "سيتم أعادة تفعيل التذكير تلقائيا" : "Will be resumed automatically"}
+              </p>
+            )}
+          </div>
+          <div className="dropdown-container">
+            <select
+              value={currentTime < pauseUntil ? selectedPauseDuration : ""}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handlePauseOverlay(parseInt(e.target.value, 10));
+                }
+              }}
+              className="speed-dropdown"
+            >
+              <option value="" disabled>{isRtl ? "اختر" : "Select"}</option>
+              <option value="1440">{isRtl ? "يوم واحد" : "1 Day"}</option>
+              <option value="2880">{isRtl ? "يومان" : "2 Days"}</option>
+              <option value="4320">{isRtl ? "ثلاثة ايام" : "3 Days"}</option>
+              <option value="0">{isRtl ? "إلغاء الإيقاف" : "Cancel Pause"}</option>
+            </select>
+          </div>
+        </div>
       </div>
-
-
 
       {/* ── Permission section — only rendered when NOT granted ── */}
       {isAndroid && (!hasPermission || isBatteryOptimized === false) && (

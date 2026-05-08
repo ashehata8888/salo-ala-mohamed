@@ -24,6 +24,27 @@ public class SaloPrayerService extends Service {
     private Handler unlockHandler = new Handler(Looper.getMainLooper());
     private final long ONE_HOUR_MS = 3600000;
     private boolean skipNextPopup = true;
+    private boolean isReceiverRegistered = false;
+
+    private void checkAndRegisterReceiver() {
+        if (!isReceiverRegistered && screenReceiver != null) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_USER_PRESENT);
+            filter.addAction(Intent.ACTION_SCREEN_OFF);
+            filter.addAction(Intent.ACTION_USER_UNLOCKED);
+            registerReceiver(screenReceiver, filter);
+            isReceiverRegistered = true;
+        }
+    }
+
+    private void unregisterScreenReceiver() {
+        if (isReceiverRegistered && screenReceiver != null) {
+            try {
+                unregisterReceiver(screenReceiver);
+            } catch (Exception e) {}
+            isReceiverRegistered = false;
+        }
+    }
 
     private Runnable timerRunnable = new Runnable() {
         @Override
@@ -106,7 +127,17 @@ public class SaloPrayerService extends Service {
                 }
             }
         };
-        registerReceiver(screenReceiver, filter);
+
+        android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        long pauseUntil = 0;
+        try {
+            pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0"));
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
+        if (System.currentTimeMillis() >= pauseUntil) {
+            checkAndRegisterReceiver();
+        }
         
         // resetTimer reads SharedPreferences which may not be available
         // during Direct Boot (LOCKED_BOOT_COMPLETED). Safe to skip — the
@@ -166,6 +197,29 @@ public class SaloPrayerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            String action = intent.getAction();
+            if ("com.salo.alahmuhammed.PAUSE_SERVICE".equals(action)) {
+                unregisterScreenReceiver();
+            } else if ("com.salo.alahmuhammed.RESUME_SERVICE".equals(action)) {
+                android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                prefs.edit().putString("pauseUntil", "0").apply();
+                checkAndRegisterReceiver();
+            } else {
+                android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                long pauseUntil = 0;
+                try {
+                    pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0"));
+                } catch (NumberFormatException e) {
+                    e.printStackTrace();
+                }
+                if (System.currentTimeMillis() >= pauseUntil) {
+                    checkAndRegisterReceiver();
+                } else {
+                    unregisterScreenReceiver(); // Just in case
+                }
+            }
+        }
         return START_STICKY;
     }
 
@@ -173,9 +227,7 @@ public class SaloPrayerService extends Service {
     public void onDestroy() {
         super.onDestroy();
         stopTimer();
-        if (screenReceiver != null) {
-            unregisterReceiver(screenReceiver);
-        }
+        unregisterScreenReceiver();
     }
 
     @Override

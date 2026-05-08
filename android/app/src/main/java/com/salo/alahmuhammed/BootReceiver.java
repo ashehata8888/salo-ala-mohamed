@@ -22,12 +22,16 @@ public class BootReceiver extends BroadcastReceiver {
             Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action) ||
             Intent.ACTION_USER_UNLOCKED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action) ||
-            "com.salo.alahmuhammed.RESTART_SERVICE".equals(action)) {
+            "com.salo.alahmuhammed.RESTART_SERVICE".equals(action) ||
+            "com.salo.alahmuhammed.RESUME_SERVICE".equals(action)) {
 
             // Try direct start first (fastest path)
             try {
                 Intent serviceIntent = new Intent(context, SaloPrayerService.class);
                 serviceIntent.putExtra("BOOT_TRIGGER", true);
+                if ("com.salo.alahmuhammed.RESUME_SERVICE".equals(action)) {
+                    serviceIntent.setAction("com.salo.alahmuhammed.RESUME_SERVICE");
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(serviceIntent);
                 } else {
