@@ -640,11 +640,31 @@ p.description {
   line-height: 1.3;
 }
 
+.basmala{
+  margin-bottom: 16px;
+}
+
+select{
+  width: 110px;
+}
+
 .action-desc {
   font-size: 0.80rem;
   color: var(--text-secondary);
   margin: 4px 0 0;
   line-height: 1.4;
+
+  &.status {
+    color: #ffab00;
+    margin: 0 4px;
+    // font-size: 0.85rem;
+    font-weight: 600;
+
+    label {
+      color: var(--text-secondary);
+       font-weight: 500;
+    }
+  }
 }
 
 .rtl .action-title,

@@ -15,7 +15,7 @@ const resources = {
       "draw_over_apps_desc": "يرجى تفعيل هذا الإذن لكي يتم إظهار التذكير عند فتح قفل الشاشة",
       "grant_permission": "منح الإذن",
       "permission_granted": "الإذن مفعل",
-      "salah_desc": "تطبيق لتذكيرك بالصلاة على سيدنا محمد ﷺ \nفي كل مرة تفتح فيها هاتفك.",
+      "salah_desc": "تطبيق لتذكيرك بالصلاة على سيدنا محمد ﷺ \nفي كل مرة تفتح فيها هاتفك",
       "preview": "معاينة التذكير",
       "check_permission": "التحقق من الإذن",
       "permission": "الإذن"
@@ -33,7 +33,7 @@ const resources = {
       "draw_over_apps_desc": "Please enable Draw Over Apps permission for the reminder popup upon unlocking your screen.",
       "grant_permission": "Grant Permission",
       "permission_granted": "Permission Granted",
-      "salah_desc": "An app to remind you to send blessings upon Prophet Muhammad ﷺ every time you unlock your device.",
+      "salah_desc": "An app to remind you to send blessings upon Prophet Muhammad ﷺ every time you unlock your mobile",
       "preview": "Preview Reminder",
       "check_permission": "Check Permission",
       "permission": "Permission"

@@ -88,4 +88,73 @@ public class OverlayPlugin extends Plugin {
         ret.put("requested", false);
         call.resolve(ret);
     }
+
+    @PluginMethod
+    public void pauseOverlay(PluginCall call) {
+        int minutes = call.getInt("minutes", 0);
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
+
+        Intent resumeIntent = new Intent(getContext(), BootReceiver.class);
+        resumeIntent.setAction("com.salo.alahmuhammed.RESUME_SERVICE");
+        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
+        }
+        android.app.PendingIntent pendingIntent = android.app.PendingIntent.getBroadcast(getContext(), 2, resumeIntent, flags);
+        android.app.AlarmManager alarmManager = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
+
+        if (minutes <= 0) {
+            // Cancel pause
+            prefs.edit().putString("pauseUntil", "0").apply();
+            
+            if (alarmManager != null) {
+                alarmManager.cancel(pendingIntent);
+            }
+            
+            // Tell service to resume
+            getContext().sendBroadcast(resumeIntent);
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("pauseUntil", 0L);
+            call.resolve(ret);
+            return;
+        }
+
+        long pauseUntil = System.currentTimeMillis() + (minutes * 60000L);
+        prefs.edit().putString("pauseUntil", String.valueOf(pauseUntil)).apply();
+
+        // Tell service to pause
+        Intent pauseIntent = new Intent(getContext(), SaloPrayerService.class);
+        pauseIntent.setAction("com.salo.alahmuhammed.PAUSE_SERVICE");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                getContext().startForegroundService(pauseIntent);
+            } catch (Exception e) {
+                getContext().startService(pauseIntent);
+            }
+        } else {
+            getContext().startService(pauseIntent);
+        }
+
+        // Schedule Reactivation via BootReceiver
+        if (alarmManager != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, pauseUntil, pendingIntent);
+                } else {
+                    alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, pauseUntil, pendingIntent);
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, pauseUntil, pendingIntent);
+            } else {
+                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, pauseUntil, pendingIntent);
+            }
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        ret.put("pauseUntil", pauseUntil);
+        call.resolve(ret);
+    }
 }
