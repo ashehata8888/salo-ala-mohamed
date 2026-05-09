@@ -5,9 +5,12 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Matrix;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
 import android.graphics.RectF;
+import android.graphics.LinearGradient;
+import android.graphics.Shader;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
 
@@ -20,6 +23,7 @@ public class AnimatedGlowBorderView extends View {
     private float animatedValue = 0f;
     private float cornerRadius = 50f;
     private ValueAnimator animator;
+    private Matrix gradientMatrix = new Matrix();
 
     public AnimatedGlowBorderView(Context context) {
         super(context);
@@ -31,7 +35,8 @@ public class AnimatedGlowBorderView extends View {
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(7f);
-        paint.setColor(Color.WHITE);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
         // Removed shadow layer effect as explicitly requested
         
         fullPath = new Path();
@@ -46,19 +51,29 @@ public class AnimatedGlowBorderView extends View {
         RectF rect = new RectF(halfStroke, halfStroke, w - halfStroke, h - halfStroke);
         
         fullPath.reset();
-        // Adjusting corner radius concentrically so it perfectly aligns with the background shape
-        float innerRadius = cornerRadius - halfStroke;
-        fullPath.addRoundRect(rect, innerRadius, innerRadius, Path.Direction.CW);
+        // Use cornerRadius directly to perfectly match the background drawable's outer radius
+        fullPath.addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW);
         
         pathMeasure = new PathMeasure(fullPath, false);
         pathLength = pathMeasure.getLength();
+        
+        // Shiny Silver gradient: Shiny Silver, White
+        int[] colors = {
+            Color.parseColor("#C0C0C0"), // Very Shiny Silver
+            Color.WHITE 
+        };
+        float[] positions = {0f, 1f};
+        
+        // Horizontal gradient spanning the view width
+        LinearGradient shader = new LinearGradient(0, 0, w, 0, colors, positions, Shader.TileMode.MIRROR);
+        paint.setShader(shader);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (pathMeasure == null) return;
-        
+
         drawnPath.reset();
         // Shift the start point forward towards the end to erase in a clockwise direction
         pathMeasure.getSegment(pathLength * animatedValue, pathLength, drawnPath, true);
