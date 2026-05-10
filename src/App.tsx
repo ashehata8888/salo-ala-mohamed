@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { salahPhrases } from "./salahPhrases";
+import { salahPhrasesEn } from "./salahPhrasesEn";
 import "./main.scss";
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
@@ -22,6 +23,9 @@ export function getPhraseAtIndex(phrases: string[], index: number): string {
 function App() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
+
+  // Derive active phrase array from current language (index is preserved on switch)
+  const activePhrases = i18n.language === "ar" ? salahPhrases : salahPhrasesEn;
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isBatteryOptimized, setIsBatteryOptimized] = useState<boolean | null>(null);
@@ -89,10 +93,12 @@ function App() {
         setSelectedPauseDuration(pauseDurationPref.value);
       }
 
-      // Sync static phrases to native layer
+      // Sync phrases to native layer (using language-aware array)
+      const lang = (await Preferences.get({ key: "user_lang" })).value ?? "ar";
+      const phrases = lang === "ar" ? salahPhrases : salahPhrasesEn;
       await Preferences.set({
         key: "salah_phrases",
-        value: JSON.stringify(salahPhrases),
+        value: JSON.stringify(phrases),
       });
     })();
   }, []);
@@ -173,6 +179,14 @@ function App() {
     localStorage.setItem("user_lang", lng);
     await i18n.changeLanguage(lng);
     await Preferences.set({ key: "user_lang", value: lng });
+
+    // Re-sync the correct phrase array to the native layer on language switch.
+    // currentIndex is NOT reset — phrase #N in Arabic maps to phrase #N in English.
+    const phrases = lng === "ar" ? salahPhrases : salahPhrasesEn;
+    await Preferences.set({
+      key: "salah_phrases",
+      value: JSON.stringify(phrases),
+    });
   };
 
   // ── Timer toggle ───────────────────────────────────────────────────────────
