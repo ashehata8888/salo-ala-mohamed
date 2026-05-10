@@ -156,7 +156,8 @@ public class OverlayHelper {
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24); // Increased for readability
             tv.setTypeface(null, android.graphics.Typeface.BOLD); // Made it bolder
             tv.setGravity(Gravity.CENTER);
-            tv.setLineSpacing(0, 0.82f); // Extremely tight row spacing
+            // Arabic needs tight spacing for long diacritical text; English gets a little more room
+            tv.setLineSpacing(0, lang.equals("en") ? 1.1f : 0.82f);
             layout.addView(tv);
 
             // Create and configure the border view stretching across the same dimensions
