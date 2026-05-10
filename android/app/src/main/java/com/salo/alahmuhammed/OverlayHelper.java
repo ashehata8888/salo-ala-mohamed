@@ -228,7 +228,18 @@ public class OverlayHelper {
             params.windowAnimations = android.R.style.Animation_Dialog;
 
             int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
-            params.width = screenWidth > 200 ? screenWidth - 100 : screenWidth;
+            float density = context.getResources().getDisplayMetrics().density;
+            float widthDp = screenWidth / density;
+
+            if (widthDp > 768) {
+                // For screens larger than 768dp (tablets/landscape), width is 80% with a max of 600dp
+                int calculatedWidth = (int) (screenWidth * 0.8);
+                int maxWidth = (int) (600 * density);
+                params.width = Math.min(calculatedWidth, maxWidth);
+            } else {
+                // for all mobile screen sizes (768dp and below), leave 40px margins on both sides
+                params.width = screenWidth > 160 ? screenWidth - 70 : screenWidth;
+            }
 
             try {
                 windowManager.addView(overlayView, params);
