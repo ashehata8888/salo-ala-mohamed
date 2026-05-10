@@ -640,11 +640,11 @@ p.description {
   line-height: 1.3;
 }
 
-.basmala{
+.basmala {
   margin-bottom: 16px;
 }
 
-select{
+select {
   width: 110px;
 }
 
@@ -662,7 +662,7 @@ select{
 
     label {
       color: var(--text-secondary);
-       font-weight: 500;
+      font-weight: 500;
     }
   }
 }
@@ -906,4 +906,608 @@ button {
 ::-webkit-scrollbar-thumb {
   background: var(--border-mid);
   border-radius: 4px;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ONBOARDING FLOW
+// ═══════════════════════════════════════════════════════════════════════════════
+
+.onboarding-lang-btn {
+  margin-top: 16px;
+}
+
+// ─── Full-screen wrapper ──────────────────────────────────────────────────────
+.onboarding-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-0);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180, 130, 30, 0.15), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(20, 40, 90, 0.35), transparent);
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+// ─── Global language toggle (top-right) ──────────────────────────────────────
+.onboarding-lang-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-mid);
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s ease, transform 0.2s ease;
+  padding: 0;
+  padding-bottom: 3px;
+
+
+  &:hover {
+    background: rgba(200, 168, 80, 0.12);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+[dir="rtl"] .onboarding-lang-btn {
+  right: auto;
+  left: 16px;
+  padding-top: 6px;
+}
+
+// ─── Debug panel (hidden tap target + overlay) ────────────────────────────────
+.onboarding-debug-trigger {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 99;
+  padding: 0;
+  opacity: 0;
+}
+
+[dir="rtl"] .onboarding-debug-trigger {
+  left: auto;
+  right: 64px;
+}
+
+.onboarding-debug-panel {
+  position: fixed;
+  top: 52px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid var(--border-mid);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+  color: var(--text-secondary);
+  z-index: 200;
+  backdrop-filter: blur(8px);
+  line-height: 1.7;
+  min-width: 200px;
+
+  strong {
+    display: block;
+    color: var(--gold-mid);
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+// ─── Step dots ────────────────────────────────────────────────────────────────
+.onboarding-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 56px;
+  padding-bottom: 4px;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-mid);
+  transition: background 0.3s ease, transform 0.3s ease, width 0.3s ease;
+
+  &--active {
+    width: 24px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold-mid));
+    box-shadow: 0 0 8px rgba(200, 168, 80, 0.4);
+    transform: scaleY(1.1);
+  }
+}
+
+// ─── Scrollable content area ──────────────────────────────────────────────────
+.onboarding-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 20px 0;
+  overflow-y: auto;
+  transition: opacity 0.38s ease, transform 0.38s ease;
+
+  &--sliding {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+
+[dir="rtl"] .onboarding-content--sliding {
+  transform: translateX(32px);
+}
+
+// ─── Title block ──────────────────────────────────────────────────────────────
+.onboarding-title-block {
+  margin-bottom: 20px;
+}
+
+.onboarding-title {
+  font-family: 'Cinzel', 'Amiri', serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  background: linear-gradient(135deg, var(--gold-bright) 0%, #f5dfa0 45%, var(--gold-mid) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.3;
+}
+
+[dir="rtl"] .onboarding-title {
+  font-family: 'Amiri', serif;
+  font-size: 1.75rem;
+  letter-spacing: 0;
+}
+
+.onboarding-subtitle {
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.65;
+}
+
+[dir="rtl"] .onboarding-subtitle {
+  font-family: 'Amiri', serif;
+  font-size: 1rem;
+}
+
+// ─── Skeleton wrapper ─────────────────────────────────────────────────────────
+.onboarding-skeleton-wrapper {
+  flex: 1;
+  margin-bottom: 12px;
+}
+
+// ─── Action button area ───────────────────────────────────────────────────────
+.onboarding-btn-area {
+  padding: 16px 20px 28px;
+  background: linear-gradient(to top, var(--surface-0) 80%, transparent);
+  flex-shrink: 0;
+}
+
+.onboarding-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 24px;
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--gold-mid);
+  background: linear-gradient(135deg, #7a5218, #c9870a);
+  color: var(--gold-bright);
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(180, 120, 20, 0.35);
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    background: linear-gradient(135deg, #8a5e20, #d9960c);
+    box-shadow: 0 8px 28px rgba(180, 120, 20, 0.5);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 16px rgba(180, 120, 20, 0.3);
+  }
+}
+
+[dir="rtl"] .onboarding-action-btn {
+  font-family: 'Amiri', serif;
+  font-size: 1.1rem;
+}
+
+.onboarding-btn-icon {
+  font-size: 1.15rem;
+}
+
+.onboarding-step-label {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin: 10px 0 0;
+}
+
+[dir="rtl"] .onboarding-step-label {
+  font-family: 'Amiri', serif;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SKELETON UI — Android Settings Mimic
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@keyframes shimmer {
+  0% {
+    background-position: -300px 0;
+  }
+
+  100% {
+    background-position: 300px 0;
+  }
+}
+
+$shimmer-base: rgba(255, 255, 255, 0.04);
+$shimmer-highlight: rgba(255, 255, 255, 0.10);
+
+.skeleton-screen {
+  background: var(--surface-2);
+  border-radius: 18px;
+  border: 1px solid var(--border-subtle);
+  padding: 16px 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.skeleton-header-bar {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+// Generic shimmer bar
+.skeleton-bar {
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+      $shimmer-base 25%,
+      $shimmer-highlight 50%,
+      $shimmer-base 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+
+  &--short {
+    width: 40%;
+    height: 10px;
+  }
+
+  &--medium {
+    width: 65%;
+    height: 10px;
+  }
+
+  &--long {
+    width: 85%;
+    height: 10px;
+  }
+
+  &--thin {
+    width: 50%;
+    height: 8px;
+    margin-top: 6px;
+    opacity: 0.6;
+  }
+
+  &--icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  &--app-icon {
+    background: linear-gradient(135deg, var(--gold-dim), #3a2a0a);
+    animation: none;
+  }
+}
+
+// Row
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  position: relative;
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+
+  // Highlighted row (Salo App)
+  &--highlight {
+    background: rgba(200, 168, 80, 0.06);
+    border-radius: 10px;
+    border: 1px solid rgba(200, 168, 80, 0.18);
+    padding: 12px 10px;
+    margin: 4px -4px;
+  }
+}
+
+.skeleton-text-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.skeleton-app-label {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[dir="rtl"] .skeleton-app-label {
+  font-family: 'Amiri', serif;
+  font-size: 1rem;
+}
+
+// ── Toggle switch (inside skeleton) ──────────────────────────────────────────
+.skeleton-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  border: 1.5px solid var(--border-subtle);
+  flex-shrink: 0;
+  transition: background 0.35s ease, border-color 0.35s ease;
+
+  &--on {
+    background: linear-gradient(135deg, #7a5c1e, var(--gold-mid));
+    border-color: var(--gold-mid);
+    box-shadow: 0 0 10px rgba(200, 160, 60, 0.3);
+  }
+}
+
+.skeleton-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.35s cubic-bezier(.4, 0, .2, 1), background 0.35s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+
+  &--on {
+    transform: translateX(20px);
+    background: var(--gold-bright);
+  }
+}
+
+// ── Divider ──────────────────────────────────────────────────────────────────
+.skeleton-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 8px 0;
+}
+
+// ── Radio rows ────────────────────────────────────────────────────────────────
+.skeleton-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 8px;
+  border-radius: 8px;
+  margin-bottom: 2px;
+
+  &--highlight {
+    background: rgba(200, 168, 80, 0.08);
+    border: 1px solid rgba(200, 168, 80, 0.22);
+    border-radius: 10px;
+  }
+}
+
+.skeleton-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-mid);
+  flex-shrink: 0;
+  background: transparent;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+
+  &--selected {
+    border-color: var(--gold-mid);
+    box-shadow: inset 0 0 0 4px var(--gold-mid);
+    background: rgba(200, 168, 80, 0.12);
+  }
+}
+
+.skeleton-radio-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HAND POINTER ANIMATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+.hand-pointer {
+  position: absolute;
+  font-size: 1.6rem;
+  pointer-events: none;
+  z-index: 10;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  top: 16px;
+}
+
+// ── Page 1: hand moves from left-center to the toggle switch (right side) ────
+.hand-pointer--overlay {
+  bottom: 54px;
+  left: 44px;
+  animation: hand-overlay 2.6s ease-in-out infinite;
+  transform-origin: 50% 90%;
+  
+}
+
+@keyframes hand-overlay {
+  0% {
+    transform: translate(0, 0) rotate(-5deg);
+    opacity: 0;
+  }
+
+  12% {
+    transform: translate(0, 0) rotate(-5deg);
+    opacity: 1;
+  }
+
+  55% {
+    transform: translate(150px, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  65% {
+    transform: translate(152px, 4px) scale(0.88) rotate(0deg);
+  }
+
+  // tap
+  75% {
+    transform: translate(150px, 0) scale(1) rotate(0deg);
+  }
+
+  88% {
+    transform: translate(150px, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(-5deg);
+    opacity: 0;
+  }
+}
+
+[dir="rtl"] .hand-pointer--overlay {
+  left: auto;
+  right: 44px;
+  animation-name: hand-overlay-rtl;
+
+}
+
+[dir="rtl"] .onboarding-lang-btn:hover {
+  padding-top: 3px;
+}
+
+@keyframes hand-overlay-rtl {
+  0% {
+    transform: translate(0, 0) rotate(5deg) scaleX(-1);
+    opacity: 0;
+  }
+
+  12% {
+    transform: translate(0, 0) rotate(5deg) scaleX(-1);
+    opacity: 1;
+  }
+
+  55% {
+    transform: translate(-150px, 0) rotate(0) scaleX(-1);
+    opacity: 1;
+  }
+
+  65% {
+    transform: translate(-152px, 4px) scale(0.88) scaleX(-1);
+  }
+
+  75% {
+    transform: translate(-150px, 0) scale(1) scaleX(-1);
+  }
+
+  88% {
+    transform: translate(-150px, 0) scaleX(-1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(5deg) scaleX(-1);
+    opacity: 0;
+  }
+}
+// ── Page 2: hand moves from bottom upward to radio button ──────────────
+.hand-pointer--battery {
+  top: 20px; // This remains the "Target" destination
+  left: 50%;
+  transform: translateX(-50%);
+  animation: hand-battery 2.6s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+@keyframes hand-battery {
+  0% {
+    /* Start 80px below the target */
+    transform: translateX(-50%) translateY(80px) rotate(5deg);
+    opacity: 0;
+  }
+
+  12% {
+    /* Fade in at the bottom starting position */
+    transform: translateX(-50%) translateY(80px) rotate(5deg);
+    opacity: 1;
+  }
+
+  58% {
+    /* Move UP to the target (0px) */
+    transform: translateX(-50%) translateY(0px) rotate(0deg);
+    opacity: 1;
+  }
+
+  68% {
+    /* The "Click" - slight scale down at the target position */
+    transform: translateX(-50%) translateY(0px) scale(0.85);
+  }
+
+  78% {
+    /* Release the click */
+    transform: translateX(-50%) translateY(0px) scale(1);
+  }
+
+  90% {
+    /* Hold for a split second so the user sees the success */
+    transform: translateX(-50%) translateY(0px) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    /* Reset back to bottom and fade out */
+    transform: translateX(-50%) translateY(80px) rotate(5deg);
+    opacity: 0;
+  }
 }

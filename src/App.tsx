@@ -4,6 +4,7 @@ import { Preferences } from "@capacitor/preferences";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { salahPhrases } from "./salahPhrases";
 import { salahPhrasesEn } from "./salahPhrasesEn";
+import { OnboardingFlow } from "./OnboardingFlow";
 import "./main.scss";
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
@@ -35,27 +36,49 @@ function App() {
   const [pauseUntil, setPauseUntil] = useState<number>(0);
   const [selectedPauseDuration, setSelectedPauseDuration] = useState<string>("");
   const [currentTime, setCurrentTime] = useState(Date.now());
+  // permissionsChecked: false until the FIRST live checkPermission() call completes
+  const [permissionsChecked, setPermissionsChecked] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // ── On mount: load persisted permission state immediately ──────────────────
+  // ── On mount: LIVE permission check — routing is derived from this, not cache ─
   useEffect(() => {
     (async () => {
+      // Non-Android: skip all native checks, go straight to dashboard
+      if (!isAndroid) {
+        setHasPermission(true);
+        setIsBatteryOptimized(true);
+        setPermissionsChecked(true);
+        return;
+      }
+
+      // Optimistically seed from cache so the loading shield disappears faster,
+      // then overwrite immediately with the live result below.
       try {
         const cached = await Preferences.get({ key: "overlay_permission_granted" });
-        setHasPermission(cached.value === "true" ? true : false);
-      } catch {
-        setHasPermission(false);
-      }
+        if (cached.value !== null) {
+          setHasPermission(cached.value === "true");
+        }
+      } catch { /* ignore */ }
+
+      // ── LIVE check (always runs, never skipped) ─────────────────────────────
       await checkPermission();
+
+      // Mark the initial check done → OnboardingFlow can now render with
+      // verified permission states (no stale-cache false-positive).
+      setPermissionsChecked(true);
+
+      console.log('[App] Initial permission check complete.');
     })();
 
+    // Safety: if native bridge hangs, unblock UI after 4 s
     const timer = setTimeout(() => {
+      setPermissionsChecked(true);
       setHasPermission((prev) => (prev === null ? false : prev));
-    }, 3000);
+    }, 4000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -227,9 +250,35 @@ function App() {
     }
   };
 
+  // (No onComplete callback needed — routing is derived from live permission
+  //  states. When both are true, App.tsx automatically shows the dashboard.)
+
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (hasPermission === null) {
+  // Block until the LIVE permission check finishes (prevents stale-cache skip)
+  if (!permissionsChecked) {
     return <div className="glass-container loading-shield" />;
+  }
+
+  // Android-only: strict gate — route is derived ONLY from live permission state.
+  // No persisted flag. If either permission is ungranted → onboarding.
+  if (isAndroid && (!hasPermission || isBatteryOptimized === false)) {
+    // initialStep: start at Step 1 (overlay) unless overlay is already verified.
+    const initialStep: 0 | 1 = hasPermission === true ? 1 : 0;
+    console.log(
+      `[App] Routing to OnboardingFlow — initialStep=${initialStep}`,
+      `| overlay=${hasPermission} | battery_ignored=${isBatteryOptimized}`
+    );
+    return (
+      <OnboardingFlow
+        initialStep={initialStep}
+        hasPermission={hasPermission}
+        isBatteryOptimized={isBatteryOptimized}
+        checkPermission={checkPermission}
+        requestPermission={requestPermission}
+        requestBatteryPermission={requestBatteryPermission}
+        changeLanguage={changeLanguage}
+      />
+    );
   }
 
   return (
