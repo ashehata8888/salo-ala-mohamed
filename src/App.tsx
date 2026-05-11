@@ -162,25 +162,40 @@ function App() {
   };
 
   useEffect(() => {
+    // This function runs when the Native Java side sends the 'refreshPermissions' nudge
+    const handleNativeRefresh = async () => {
+      console.log("[App] Native nudge received. Checking battery state...");
+      await checkPermission();
+    };
+
+    // This function runs immediately when the app enters the foreground
     const handleVisibilityChange = async () => {
       if (document.visibilityState === "visible") {
-        checkPermission();
-        const pausePref = await Preferences.get({ key: "pauseUntil" });
-        if (pausePref.value !== null) {
+        // 1. We check preferences immediately (very light on hardware)
+        const [pausePref, pauseDurationPref] = await Promise.all([
+          Preferences.get({ key: "pauseUntil" }),
+          Preferences.get({ key: "selectedPauseDuration" }),
+        ]);
+
+        if (pausePref.value !== null)
           setPauseUntil(parseInt(pausePref.value, 10));
-        }
-        const pauseDurationPref = await Preferences.get({
-          key: "selectedPauseDuration",
-        });
-        if (pauseDurationPref.value !== null) {
+        if (pauseDurationPref.value !== null)
           setSelectedPauseDuration(pauseDurationPref.value);
-        }
+
+        // Note: We do NOT call checkPermission() here.
+        // We wait for the 'refreshPermissions' event from MainActivity.java
+        // which is timed perfectly to bypass the Android PowerManager lag.
       }
     };
+
+    window.addEventListener("refreshPermissions", handleNativeRefresh);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
+
+    return () => {
+      window.removeEventListener("refreshPermissions", handleNativeRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
+    };
+  }, [checkPermission]);
 
   const requestPermission = async () => {
     if (

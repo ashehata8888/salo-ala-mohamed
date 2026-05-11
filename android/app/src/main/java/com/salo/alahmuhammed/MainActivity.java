@@ -36,11 +36,26 @@ public class MainActivity extends BridgeActivity {
                 workRequest);
     }
 
-    @Override
-    public void onResume() {  // ← public, not protected
-        super.onResume();
-        injectLangIntoWebView();
-    }
+    // @Override
+    // public void onResume() {  // ← public, not protected
+    //     super.onResume();
+    //     injectLangIntoWebView();
+    // }
+
+@Override
+public void onResume() {
+    super.onResume();
+    injectLangIntoWebView();
+
+    // The "Lightweight Nudge"
+    // Wait 1.2 seconds (standard Android sync gap) then tell React to check.
+    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+        WebView webView = getBridge().getWebView();
+        if (webView != null) {
+            webView.evaluateJavascript("window.dispatchEvent(new Event('refreshPermissions'));", null);
+        }
+    }, 1200); 
+}
 
     private void injectLangIntoWebView() {
         try {
