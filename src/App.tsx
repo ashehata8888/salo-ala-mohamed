@@ -11,8 +11,8 @@ import "./main.scss";
 const OverlayPlugin = registerPlugin("OverlayPlugin");
 
 const platform = Capacitor.getPlatform();
-const isAndroid = platform === 'android';
-const isIos = platform === 'ios';
+const isAndroid = platform === "android";
+const isIos = platform === "ios";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function getPhraseAtIndex(phrases: string[], index: number): string {
@@ -29,12 +29,15 @@ function App() {
   const activePhrases = i18n.language === "ar" ? salahPhrases : salahPhrasesEn;
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [isBatteryOptimized, setIsBatteryOptimized] = useState<boolean | null>(null);
+  const [isBatteryOptimized, setIsBatteryOptimized] = useState<boolean | null>(
+    null,
+  );
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
   const [popupSpeed, setPopupSpeed] = useState("medium");
   const [reduceFrequency, setReduceFrequency] = useState(false);
   const [pauseUntil, setPauseUntil] = useState<number>(0);
-  const [selectedPauseDuration, setSelectedPauseDuration] = useState<string>("");
+  const [selectedPauseDuration, setSelectedPauseDuration] =
+    useState<string>("");
   const [currentTime, setCurrentTime] = useState(Date.now());
   // permissionsChecked: false until the FIRST live checkPermission() call completes
   const [permissionsChecked, setPermissionsChecked] = useState(false);
@@ -58,11 +61,15 @@ function App() {
       // Optimistically seed from cache so the loading shield disappears faster,
       // then overwrite immediately with the live result below.
       try {
-        const cached = await Preferences.get({ key: "overlay_permission_granted" });
+        const cached = await Preferences.get({
+          key: "overlay_permission_granted",
+        });
         if (cached.value !== null) {
           setHasPermission(cached.value === "true");
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       // ── LIVE check (always runs, never skipped) ─────────────────────────────
       await checkPermission();
@@ -71,7 +78,7 @@ function App() {
       // verified permission states (no stale-cache false-positive).
       setPermissionsChecked(true);
 
-      console.log('[App] Initial permission check complete.');
+      console.log("[App] Initial permission check complete.");
     })();
 
     // Safety: if native bridge hangs, unblock UI after 4 s
@@ -111,7 +118,9 @@ function App() {
         setPauseUntil(parseInt(pausePref.value, 10));
       }
 
-      const pauseDurationPref = await Preferences.get({ key: "selectedPauseDuration" });
+      const pauseDurationPref = await Preferences.get({
+        key: "selectedPauseDuration",
+      });
       if (pauseDurationPref.value !== null) {
         setSelectedPauseDuration(pauseDurationPref.value);
       }
@@ -133,7 +142,8 @@ function App() {
 
   // ── Permission helpers ─────────────────────────────────────────────────────
   const checkPermission = async () => {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android")
+      return;
     try {
       const result = await (OverlayPlugin as any).checkPermission();
       setHasPermission(result.granted);
@@ -142,7 +152,9 @@ function App() {
         value: result.granted.toString(),
       });
 
-      const batteryResult = await (OverlayPlugin as any).isBatteryOptimizationIgnored();
+      const batteryResult = await (
+        OverlayPlugin as any
+      ).isBatteryOptimizationIgnored();
       setIsBatteryOptimized(batteryResult.isIgnored);
     } catch (e) {
       console.error("Checking permission failed", e);
@@ -157,18 +169,24 @@ function App() {
         if (pausePref.value !== null) {
           setPauseUntil(parseInt(pausePref.value, 10));
         }
-        const pauseDurationPref = await Preferences.get({ key: "selectedPauseDuration" });
+        const pauseDurationPref = await Preferences.get({
+          key: "selectedPauseDuration",
+        });
         if (pauseDurationPref.value !== null) {
           setSelectedPauseDuration(pauseDurationPref.value);
         }
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   const requestPermission = async () => {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+    if (
+      !Capacitor.isNativePlatform() ||
+      Capacitor.getPlatform() !== "android"
+    ) {
       alert("This feature is only available on Android native app.");
       return;
     }
@@ -185,9 +203,12 @@ function App() {
   };
 
   const requestBatteryPermission = async () => {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android")
+      return;
     try {
-      const result = await (OverlayPlugin as any).requestIgnoreBatteryOptimization();
+      const result = await (
+        OverlayPlugin as any
+      ).requestIgnoreBatteryOptimization();
       if (result.requested) {
         // Checking status directly might not be instant if they haven't answered the prompt yet,
         // but visibilitychange event listener will re-check it when they come back to the app.
@@ -216,7 +237,10 @@ function App() {
   const toggleTimer = async () => {
     const newValue = !isTimerEnabled;
     setIsTimerEnabled(newValue);
-    await Preferences.set({ key: "enable_active_timer", value: newValue.toString() });
+    await Preferences.set({
+      key: "enable_active_timer",
+      value: newValue.toString(),
+    });
   };
 
   // ── Speed ──────────────────────────────────────────────────────────────────
@@ -229,12 +253,18 @@ function App() {
   const handleToggleFrequency = async () => {
     const newValue = !reduceFrequency;
     setReduceFrequency(newValue);
-    await Preferences.set({ key: "reducePopupFrequency", value: newValue.toString() });
+    await Preferences.set({
+      key: "reducePopupFrequency",
+      value: newValue.toString(),
+    });
   };
 
   // ── Deep Sleep ─────────────────────────────────────────────────────────────
   const handlePauseOverlay = async (minutes: number) => {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+    if (
+      !Capacitor.isNativePlatform() ||
+      Capacitor.getPlatform() !== "android"
+    ) {
       alert("This feature is only available on Android native app.");
       return;
     }
@@ -243,7 +273,10 @@ function App() {
       if (result.success) {
         setPauseUntil(result.pauseUntil);
         setSelectedPauseDuration(minutes.toString());
-        await Preferences.set({ key: "selectedPauseDuration", value: minutes.toString() });
+        await Preferences.set({
+          key: "selectedPauseDuration",
+          value: minutes.toString(),
+        });
       }
     } catch (e) {
       console.error("Failed to pause overlay", e);
@@ -266,7 +299,7 @@ function App() {
     const initialStep: 0 | 1 = hasPermission === true ? 1 : 0;
     console.log(
       `[App] Routing to OnboardingFlow — initialStep=${initialStep}`,
-      `| overlay=${hasPermission} | battery_ignored=${isBatteryOptimized}`
+      `| overlay=${hasPermission} | battery_ignored=${isBatteryOptimized}`,
     );
     return (
       <OnboardingFlow
@@ -290,7 +323,9 @@ function App() {
         <div>
           <h4 className="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</h4>
           <span className="quran">
-            {"إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ ۚ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا"}
+            {
+              "إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ ۚ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا"
+            }
           </span>
         </div>
       </div>
@@ -327,7 +362,9 @@ function App() {
               {isRtl ? "سرعة الإظهار" : "Popup Speed"}
             </h3>
             <p className="action-desc">
-              {isRtl ? "تحديد مدة بقاء التذكير" : "Select how long the popup stays visible"}
+              {isRtl
+                ? "تحديد مدة بقاء التذكير"
+                : "Select how long the popup stays visible"}
             </p>
           </div>
           <div className="dropdown-container">
@@ -350,7 +387,9 @@ function App() {
               {isRtl ? "تذكير كل ساعة" : "Hourly Reminder"}
             </h3>
             <p className="action-desc">
-              {isRtl ? "إظهار التذكير كل ساعة أثناء الاستخدام" : "Show popup every hour during active use"}
+              {isRtl
+                ? "إظهار التذكير كل ساعة أثناء الاستخدام"
+                : "Show popup every hour during active use"}
             </p>
           </div>
           <button
@@ -391,14 +430,22 @@ function App() {
             </h3>
             {currentTime < pauseUntil ? (
               <p className="action-desc status">
-               <label>   {isRtl ? "الحالة:" : "Status:"}</label> {currentTime < pauseUntil ? (isRtl ? "متوقف مؤقتاً" : "Paused") : (isRtl ? "نشط" : "Active")}
-              
+                <label> {isRtl ? "الحالة:" : "Status:"}</label>{" "}
+                {currentTime < pauseUntil
+                  ? isRtl
+                    ? "متوقف مؤقتاً"
+                    : "Paused"
+                  : isRtl
+                    ? "نشط"
+                    : "Active"}
                 {/* {isRtl ? "سيستأنف في " : "Resumes in "}
                 {Math.ceil((pauseUntil - currentTime) / 60000)} {isRtl ? "دقيقة" : "min"} */}
               </p>
             ) : (
               <p className="action-desc">
-                {isRtl ? "سيتم أعادة تفعيل التذكير تلقائيا" : "Will be resumed automatically"}
+                {isRtl
+                  ? "سيتم أعادة تفعيل التذكير تلقائيا"
+                  : "Will be resumed automatically"}
               </p>
             )}
           </div>
@@ -412,11 +459,15 @@ function App() {
               }}
               className="speed-dropdown"
             >
-              <option value="" disabled>{isRtl ? "اختر" : "Select"}</option>
+              <option value="" disabled>
+                {isRtl ? "اختر" : "Select"}
+              </option>
               <option value="1440">{isRtl ? "يوم واحد" : "1 Day"}</option>
               <option value="2880">{isRtl ? "يومان" : "2 Days"}</option>
               <option value="4320">{isRtl ? "ثلاثة ايام" : "3 Days"}</option>
-              <option value="0">{isRtl ? "إلغاء الإيقاف" : "Cancel Pause"}</option>
+              <option value="0">
+                {isRtl ? "إلغاء الإيقاف" : "Cancel Pause"}
+              </option>
             </select>
           </div>
         </div>
@@ -424,7 +475,9 @@ function App() {
 
       {/* ── Permission section — only rendered when NOT granted ── */}
       {isAndroid && (!hasPermission || isBatteryOptimized === false) && (
-        <div className={`settings-section permission-section ${isRtl ? "rtl" : "ltr"}`}>
+        <div
+          className={`settings-section permission-section ${isRtl ? "rtl" : "ltr"}`}
+        >
           <span className="section-label">{t("permission")}</span>
 
           {!hasPermission && (
@@ -449,7 +502,9 @@ function App() {
               <div className="action-row">
                 <div className="action-text">
                   <h3 className="action-title">
-                    {isRtl ? "السماح بالعمل في الخلفية" : "Allow Background Activity"}
+                    {isRtl
+                      ? "السماح بالعمل في الخلفية"
+                      : "Allow Background Activity"}
                   </h3>
                   <p className="action-desc">
                     {isRtl
@@ -459,7 +514,10 @@ function App() {
                 </div>
               </div>
               <div className="action-row">
-                <button onClick={requestBatteryPermission} className="grant-btn pulse">
+                <button
+                  onClick={requestBatteryPermission}
+                  className="grant-btn pulse"
+                >
                   <span className="btn-icon">🔋</span>
                   {isRtl ? "منح الصلاحية" : "Grant Permission"}
                 </button>
