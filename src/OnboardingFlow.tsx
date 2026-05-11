@@ -154,18 +154,6 @@ export function OnboardingFlow({
     pageRef.current = page;
   }, [page]);
 
-  const handleVisibilityChange = useCallback(async () => {
-    if (document.visibilityState === "visible") {
-      await checkPermission();
-    }
-  }, [checkPermission]);
-
-  useEffect(() => {
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [handleVisibilityChange]);
-
   const toggleLanguage = async () => {
     await changeLanguage(i18n.language === "ar" ? "en" : "ar");
   };
