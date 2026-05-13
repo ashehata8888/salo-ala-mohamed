@@ -1,4 +1,4 @@
-export const salahPhrases: string[] = [
+export const salahPhrasesEn: string[] = [
   "O Allah, bless Muhammad & his family with a blessing matching Your perfection",
   "O Allah, bless Muhammad & his family as You blessed Ibrahim and his family",
   "O Allah, bless Muhammad & his family with a blessing that opens doors of good",
