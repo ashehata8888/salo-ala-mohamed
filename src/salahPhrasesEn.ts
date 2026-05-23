@@ -271,7 +271,7 @@ export const salahPhrasesEn: string[] = [
   "O Allah, bless Muhammad & his family with a blessing that wins Your love",
   "O Allah, bless Muhammad, the medicine for hearts and health for bodies",
   "O Allah, bless Muhammad & his family with a blessing of true humility",
-  "O Allah, bless Muhammad & his family with a blessing that hastens good",
+  "O Allah, bless Muhammad & his family with a blessing that makes us hasten in good",
   "O Allah, bless Muhammad & his family with a blessing for our kids’ souls",
   "O Allah, bless Muhammad & his family with a blessing that guards our graves",
   "O Allah, bless Muhammad & his family with a blessing matching Your perfection",
