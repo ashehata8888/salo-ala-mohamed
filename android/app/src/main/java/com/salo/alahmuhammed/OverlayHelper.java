@@ -47,7 +47,23 @@ public class OverlayHelper {
         return Math.min(15000, baseMs + (textLength * charMultiplier));
     }
 
+    public static boolean isTempStopActive(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        long pauseUntil = 0;
+        try {
+            pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0"));
+        } catch (NumberFormatException e) {
+            Log.e("OverlayHelper", "Error parsing pauseUntil", e);
+        }
+        return System.currentTimeMillis() < pauseUntil;
+    }
+
     public static void showOverlay(Context context) {
+        if (isTempStopActive(context)) {
+            Log.d("OverlayHelper", "Overlay blocked: Temporary Stop is active.");
+            return;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(context)) {
             return;
         }
