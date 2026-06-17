@@ -289,4 +289,32 @@ public class OverlayHelper {
             Log.e("OverlayHelper", "Error removing view", e);
         }
     }
+
+    public static void onConfigurationChanged(Context context) {
+        if (overlayView != null) {
+            final WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+            if (windowManager == null) return;
+
+            WindowManager.LayoutParams params = (WindowManager.LayoutParams) overlayView.getLayoutParams();
+            if (params != null) {
+                int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+                float density = context.getResources().getDisplayMetrics().density;
+                float widthDp = screenWidth / density;
+
+                if (widthDp > 768) {
+                    int calculatedWidth = (int) (screenWidth * 0.8);
+                    int maxWidth = (int) (600 * density);
+                    params.width = Math.min(calculatedWidth, maxWidth);
+                } else {
+                    params.width = screenWidth > 160 ? screenWidth - 70 : screenWidth;
+                }
+
+                try {
+                    windowManager.updateViewLayout(overlayView, params);
+                } catch (Exception e) {
+                    Log.e("OverlayHelper", "Error updating layout on rotation", e);
+                }
+            }
+        }
+    }
 }

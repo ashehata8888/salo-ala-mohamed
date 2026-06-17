@@ -263,4 +263,10 @@ public class SaloPrayerService extends Service {
             );
         }
     }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        OverlayHelper.onConfigurationChanged(this);
+    }
 }
