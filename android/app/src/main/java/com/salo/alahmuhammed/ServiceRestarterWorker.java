@@ -22,6 +22,11 @@ public class ServiceRestarterWorker extends Worker {
     @Override
     public Result doWork() {
         Context context = getApplicationContext();
+        
+        if (OverlayHelper.isTempStopActive(context)) {
+            return Result.success(); // Do not restart service if temporary stop is active
+        }
+
         Intent serviceIntent = new Intent(context, SaloPrayerService.class);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

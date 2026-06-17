@@ -25,6 +25,7 @@ public class SaloPrayerService extends Service {
     private final long ONE_HOUR_MS = 3600000;
     private boolean skipNextPopup = true;
     private boolean isReceiverRegistered = false;
+    private boolean isTimerRunning = false;
 
     private void checkAndRegisterReceiver() {
         if (!isReceiverRegistered && screenReceiver != null) {
@@ -105,6 +106,15 @@ public class SaloPrayerService extends Service {
                     unlockHandler.post(() -> {
                         try {
                             android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                            long pauseUntil = 0;
+                            try { pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0")); } catch (Exception ignored) {}
+                            
+                            if (System.currentTimeMillis() < pauseUntil) {
+                                return; // Temporary stop is active
+                            } else if (!isTimerRunning) {
+                                startActiveHourTracker();
+                            }
+
                             boolean reducePopupFrequency = Boolean.parseBoolean(prefs.getString("reducePopupFrequency", "false"));
                             
                             if (reducePopupFrequency) {
@@ -123,7 +133,7 @@ public class SaloPrayerService extends Service {
                     });
                 } else if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                     unlockHandler.removeCallbacksAndMessages(null);
-                    stopTimer();
+                    stopActiveHourTracker();
                 }
             }
         };
@@ -135,33 +145,37 @@ public class SaloPrayerService extends Service {
         } catch (NumberFormatException e) {
             e.printStackTrace();
         }
-        if (System.currentTimeMillis() >= pauseUntil) {
-            checkAndRegisterReceiver();
-        }
+        // Always register receiver so it can catch unlock events and reactivate the tracker when pause expires
+        checkAndRegisterReceiver();
         
-        // resetTimer reads SharedPreferences which may not be available
+        // startActiveHourTracker reads SharedPreferences which may not be available
         // during Direct Boot (LOCKED_BOOT_COMPLETED). Safe to skip — the
-        // first USER_PRESENT unlock will trigger resetTimer via the receiver.
+        // first USER_PRESENT unlock will trigger startActiveHourTracker via the receiver.
         try {
-            resetTimer();
+            startActiveHourTracker();
         } catch (Exception e) {
-            android.util.Log.w("SaloPrayerService", "resetTimer skipped (Direct Boot)", e);
+            android.util.Log.w("SaloPrayerService", "startActiveHourTracker skipped (Direct Boot)", e);
         }
     }
 
-    private void resetTimer() {
+    private void startActiveHourTracker() {
         timerHandler.removeCallbacks(timerRunnable);
+        isTimerRunning = false;
         
         android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         boolean isTimerEnabled = Boolean.parseBoolean(prefs.getString("enable_active_timer", "true"));
+        long pauseUntil = 0;
+        try { pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0")); } catch (Exception ignored) {}
         
-        if (isTimerEnabled) {
+        if (isTimerEnabled && System.currentTimeMillis() >= pauseUntil) {
             timerHandler.postDelayed(timerRunnable, ONE_HOUR_MS);
+            isTimerRunning = true;
         }
     }
 
-    private void stopTimer() {
+    private void stopActiveHourTracker() {
         timerHandler.removeCallbacks(timerRunnable);
+        isTimerRunning = false;
     }
 
     private void createNotificationChannel() {
@@ -191,7 +205,7 @@ public class SaloPrayerService extends Service {
         if (currentTime - lastShownTime > COOLDOWN_MS) {
             lastShownTime = currentTime;
             OverlayHelper.showOverlay(context);
-            resetTimer();
+            startActiveHourTracker();
         }
     }
 
@@ -200,24 +214,14 @@ public class SaloPrayerService extends Service {
         if (intent != null) {
             String action = intent.getAction();
             if ("com.salo.alahmuhammed.PAUSE_SERVICE".equals(action)) {
-                unregisterScreenReceiver();
+                stopActiveHourTracker();
             } else if ("com.salo.alahmuhammed.RESUME_SERVICE".equals(action)) {
                 android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
                 prefs.edit().putString("pauseUntil", "0").apply();
                 checkAndRegisterReceiver();
+                startActiveHourTracker();
             } else {
-                android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
-                long pauseUntil = 0;
-                try {
-                    pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0"));
-                } catch (NumberFormatException e) {
-                    e.printStackTrace();
-                }
-                if (System.currentTimeMillis() >= pauseUntil) {
-                    checkAndRegisterReceiver();
-                } else {
-                    unregisterScreenReceiver(); // Just in case
-                }
+                checkAndRegisterReceiver();
             }
         }
         return START_STICKY;
@@ -226,7 +230,7 @@ public class SaloPrayerService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        stopTimer();
+        stopActiveHourTracker();
         unregisterScreenReceiver();
     }
 
@@ -258,5 +262,11 @@ public class SaloPrayerService extends Service {
                     restartPendingIntent
             );
         }
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        OverlayHelper.onConfigurationChanged(this);
     }
 }
