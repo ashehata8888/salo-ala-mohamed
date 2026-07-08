@@ -804,7 +804,8 @@ button {
 
   /* This logic now matches the React className above */
   &--active {
-    width: 24px; /* The "Long" pill */
+    width: 24px;
+    /* The "Long" pill */
     border-radius: 4px;
     background: linear-gradient(90deg, var(--gold-dim), var(--gold-mid));
     box-shadow: 0 0 8px rgba(200, 168, 80, 0.4);
@@ -1305,5 +1306,30 @@ $shimmer-highlight: rgba(255, 255, 255, 0.1);
     /* Reset back to bottom and fade out */
     transform: translateX(-50%) translateY(80px) rotate(5deg);
     opacity: 0;
+  }
+}
+
+.temp-pause-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+
+  .dropdown-pause-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .cancel-pause-container {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 }

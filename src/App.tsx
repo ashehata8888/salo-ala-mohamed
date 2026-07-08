@@ -437,54 +437,72 @@ function App() {
         </div>
 
         {/* ── Temporary Pause Section ── */}
+        <div className="action-row temp-pause-section">
+          <div className="dropdown-pause-container">
+            <div className="action-text">
+              <h3 className="action-title">
+                {isRtl ? "إيقاف مؤقت" : "Temp Pause"}
+              </h3>
+              {currentTime < pauseUntil ? (
+                <p className="action-desc status">
+                  <label> {isRtl ? "الحالة:" : "Status:"}</label>{" "}
+                  {currentTime < pauseUntil
+                    ? isRtl
+                      ? "متوقف مؤقتاً"
+                      : "Paused"
+                    : isRtl
+                      ? "نشط"
+                      : "Active"}
+                </p>
+              ) : (
+                <p className="action-desc">
+                  {isRtl
+                    ? "سيتم أعادة تفعيل التذكير تلقائيا"
+                    : "Will be resumed automatically"}
+                </p>
+              )}
+            </div>
 
-        <div className="action-row">
-          <div className="action-text">
-            <h3 className="action-title">
-              {isRtl ? "إيقاف مؤقت لمدة" : "Temp Pause for"}
-            </h3>
-            {currentTime < pauseUntil ? (
-              <p className="action-desc status">
-                <label> {isRtl ? "الحالة:" : "Status:"}</label>{" "}
-                {currentTime < pauseUntil
-                  ? isRtl
-                    ? "متوقف مؤقتاً"
-                    : "Paused"
-                  : isRtl
-                    ? "نشط"
-                    : "Active"}
-                {/* {isRtl ? "سيستأنف في " : "Resumes in "}
-                {Math.ceil((pauseUntil - currentTime) / 60000)} {isRtl ? "دقيقة" : "min"} */}
-              </p>
-            ) : (
-              <p className="action-desc">
-                {isRtl
-                  ? "سيتم أعادة تفعيل التذكير تلقائيا"
-                  : "Will be resumed automatically"}
-              </p>
-            )}
+            <div className="dropdown-container">
+              <select
+                value={currentTime < pauseUntil ? selectedPauseDuration : ""}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handlePauseOverlay(parseInt(e.target.value, 10));
+                  }
+                }}
+                className="speed-dropdown"
+              >
+                <option value="" disabled>
+                  {isRtl ? "اختر المدة" : "Select Duration"}
+                </option>
+                <option value="1440">{isRtl ? "يوم واحد" : "1 Day"}</option>
+                <option value="2880">{isRtl ? "يومان" : "2 Days"}</option>
+                <option value="4320">{isRtl ? "ثلاثة ايام" : "3 Days"}</option>
+              </select>
+            </div>
           </div>
-          <div className="dropdown-container">
-            <select
-              value={currentTime < pauseUntil ? selectedPauseDuration : ""}
-              onChange={(e) => {
-                if (e.target.value) {
-                  handlePauseOverlay(parseInt(e.target.value, 10));
-                }
-              }}
-              className="speed-dropdown"
-            >
-              <option value="" disabled>
-                {isRtl ? "اختر" : "Select"}
-              </option>
-              <option value="1440">{isRtl ? "يوم واحد" : "1 Day"}</option>
-              <option value="2880">{isRtl ? "يومان" : "2 Days"}</option>
-              <option value="4320">{isRtl ? "ثلاثة ايام" : "3 Days"}</option>
-              <option value="0">
+
+          {/* Cancel Pause Switch - Only visible when a pause is active */}
+          {currentTime < pauseUntil && (
+            <div className="cancel-pause-container">
+              <p className="action-desc" style={{ margin: 0 }}>
                 {isRtl ? "إلغاء الإيقاف" : "Cancel Pause"}
-              </option>
-            </select>
-          </div>
+              </p>
+              <button
+                className="toggle-btn toggle-off"
+                onClick={() => {
+                  if (currentTime < pauseUntil) {
+                    handlePauseOverlay(0);
+                  }
+                }}
+                disabled={currentTime >= pauseUntil}
+                style={{ opacity: currentTime < pauseUntil ? 1 : 0.4 }}
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
