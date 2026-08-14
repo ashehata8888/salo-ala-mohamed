@@ -35,7 +35,7 @@ struct SalahPhrases {
         "اللهم بارك على سيدنا محمد وعلى آل سيدنا محمد كما باركت على سيدنا إبراهيم وعلى آل سيدنا إبراهيم إنك حميد مجيد",
         "اللهم صل على محمد وعلى آل محمد كما صليت على آل إبراهيم، وبارك على محمد وعلى آل محمد",
         "اللهم بارك على محمد وعلى آل محمد كما باركت على آل إبراهيم في العالمين إنك حميد مجيد",
-        "اللهم صل on محمد عبدك ورسولك كما صليت على إبراهيم، وبارك على محمد وعلى آل محمد",
+        "اللهم صل على محمد عبدك ورسولك كما صليت على إبراهيم، وبارك على محمد وعلى آل محمد",
         "اللهم بارك على محمد وعلى آل محمد كما باركت على إبراهيم وعلى آل إبراهيم إنك حميد مجيد",
         "اللهم صل على محمد وعلى أزواجه وذريته كما صليت على آل إبراهيم، وبارك على محمد وعلى أزواجه وذريته",
         "اللهم بارك على محمد وعلى أزواجه وذريته كما باركت على آل إبراهيم إنك حميد مجيد",
@@ -344,8 +344,32 @@ struct SalahPhrases {
         "O Allah, bless our Master Muhammad, a prayer by which You open for us the doors of goodness and ease.",
         "O Allah, bless our Master Muhammad, a prayer by which You protect us from all harm and trials.",
         "O Allah, send blessings upon Muhammad and the family of Muhammad, as You sent blessings upon Abraham.",
-        "Peace and blessings be upon our Prophet Muhammad \u{FDDF}"
+        "Peace and blessings be upon our Prophet Muhammad \u{FDFA}"
     ]
+}
+
+// MARK: - Family-aware phrase selection
+extension SalahPhrases {
+    /// Longest phrase that stays legible in a Lock Screen accessory.
+    private static let accessoryMaxLength = 70
+    /// Inline sits on one line beside the clock — it has room for almost nothing.
+    private static let inlineMaxLength = 32
+
+    static func pool(for family: WidgetFamily, from full: [String]) -> [String] {
+        let limit: Int
+        switch family {
+        case .accessoryInline:
+            limit = inlineMaxLength
+        case .accessoryRectangular, .accessoryCircular:
+            limit = accessoryMaxLength
+        default:
+            return full
+        }
+
+        let short = full.filter { $0.count <= limit }
+        // Never hand back an empty pool — getTimeline indexes into it unguarded.
+        return short.isEmpty ? [full.min(by: { $0.count < $1.count }) ?? ""] : short
+    }
 }
 
 // MARK: - Entry
@@ -358,35 +382,39 @@ struct SimpleEntry: TimelineEntry {
 // MARK: - Provider
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), text: "اللهم صل وسلم على نبينا محمد \u{FDDF}", isRtl: true)
+        SimpleEntry(date: Date(), text: "اللهم صل وسلم على نبينا محمد \u{FDFA}", isRtl: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        let entry = SimpleEntry(date: Date(), text: "اللهم صل وسلم على نبينا محمد \u{FDDF}", isRtl: true)
+        let entry = SimpleEntry(date: Date(), text: "اللهم صل وسلم على نبينا محمد \u{FDFA}", isRtl: true)
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> ()) {
         var entries: [SimpleEntry] = []
         let currentDate = Date()
-        
+
         // Load User Preference
         let sharedDefaults = UserDefaults(suiteName: "group.com.salo.alahmuhammed")
         let lang = sharedDefaults?.string(forKey: "user_lang") ?? "ar"
         let isArabic = lang == "ar"
-        
-        let pool = isArabic ? SalahPhrases.arabic : SalahPhrases.english
-        
+
+        let fullPool = isArabic ? SalahPhrases.arabic : SalahPhrases.english
+        // Lock Screen accessories get only a few square millimetres — long phrases
+        // scale down to unreadable. Draw from the short end of the same pool so the
+        // content stays authentic rather than truncated mid-sentence.
+        let pool = SalahPhrases.pool(for: context.family, from: fullPool)
+
         // Generate entries for the next 24 hours (one every hour)
         for hourOffset in 0 ..< 24 {
             let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            
+
             // Infinity loop logic: pick index based on total hours since a fixed start point
             // This ensures all 330+ phrases are shown over time
             let totalHours = Int(entryDate.timeIntervalSince1970 / 3600)
             let index = totalHours % pool.count
             let phrase = pool[index]
-            
+
             let entry = SimpleEntry(date: entryDate, text: phrase, isRtl: isArabic)
             entries.append(entry)
         }
@@ -426,30 +454,78 @@ struct WidgetExtensionEntryView : View {
     var entry: Provider.Entry
     @Environment(\.widgetFamily) var family
 
+    private var isAccessory: Bool {
+        switch family {
+        case .accessoryRectangular, .accessoryInline, .accessoryCircular:
+            return true
+        default:
+            return false
+        }
+    }
+
     var body: some View {
+        Group {
+            if isAccessory {
+                accessoryBody
+            } else {
+                homeScreenBody
+            }
+        }
+        .environment(\.layoutDirection, entry.isRtl ? .rightToLeft : .leftToRight)
+    }
+
+    // Lock Screen: the system renders accessories in a vibrant monochrome material.
+    // Custom colours and backgrounds are ignored there, so don't fight it — keep the
+    // glyph count low and let the material do the work.
+    @ViewBuilder
+    private var accessoryBody: some View {
+        switch family {
+        case .accessoryInline:
+            Text(entry.text)
+        default:
+            Text(entry.text)
+                .font(.system(size: 13, weight: .medium, design: .serif))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.6)
+                .widgetAccentable()
+        }
+    }
+
+    @ViewBuilder
+    private var homeScreenBody: some View {
+        // containerBackground is iOS 17+; the extension still supports 16, where the
+        // ZStack's own background is what shows.
+        if #available(iOS 17.0, *) {
+            homeScreenContent
+                .containerBackground(for: .widget) {
+                    Color(hex: "07090f")
+                }
+        } else {
+            homeScreenContent
+        }
+    }
+
+    private var homeScreenContent: some View {
         ZStack {
             PremiumBackground()
-            
+
             VStack(spacing: 8) {
                 // Ornament / Icon
                 Image(systemName: "star.fill")
                     .font(.system(size: 10))
                     .foregroundColor(Color(hex: "c9a84c"))
                     .opacity(0.6)
-                
+
                 Text(entry.text)
                     .font(.system(size: family == .systemSmall ? 14 : 16, weight: .medium, design: .serif))
                     .foregroundColor(Color(hex: "e8c96a"))
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
                     .minimumScaleFactor(0.7)
-                    .environment(\.layoutDirection, entry.isRtl ? .rightToLeft : .leftToRight)
                     .padding(.horizontal, 10)
             }
             .padding(12)
-        }
-        .containerBackground(for: .widget) {
-            Color(hex: "07090f")
         }
     }
 }
@@ -465,7 +541,14 @@ struct ProphetSalahWidget: Widget {
         }
         .configurationDisplayName("Salah Reminder")
         .description("A premium reminder to send blessings on the Prophet.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([
+            .systemSmall,
+            .systemMedium,
+            // Lock Screen — the whole point: visible the moment the screen wakes,
+            // and permanently on Always-On Display devices.
+            .accessoryRectangular,
+            .accessoryInline,
+        ])
     }
 }
 
