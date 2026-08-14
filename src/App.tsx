@@ -5,6 +5,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import { salahPhrases } from "./salahPhrases";
 import { salahPhrasesEn } from "./salahPhrasesEn";
 import { OnboardingFlow } from "./OnboardingFlow";
+import { rescheduleSalahNotifications } from "./iosNotifications";
 import "./main.scss";
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
@@ -132,6 +133,10 @@ function App() {
         key: "salah_phrases",
         value: JSON.stringify(phrases),
       });
+
+      // iOS reminder = local notifications. Top up the rolling schedule on
+      // every launch once preferences (timer/frequency/pause) are loaded.
+      await rescheduleSalahNotifications();
     })();
   }, []);
 
@@ -246,6 +251,9 @@ function App() {
       key: "salah_phrases",
       value: JSON.stringify(phrases),
     });
+
+    // iOS: re-issue notifications in the newly selected language.
+    await rescheduleSalahNotifications();
   };
 
   // ── Timer toggle ───────────────────────────────────────────────────────────
@@ -256,6 +264,7 @@ function App() {
       key: "enable_active_timer",
       value: newValue.toString(),
     });
+    await rescheduleSalahNotifications();
   };
 
   // ── Speed ──────────────────────────────────────────────────────────────────
@@ -272,30 +281,48 @@ function App() {
       key: "reducePopupFrequency",
       value: newValue.toString(),
     });
+    await rescheduleSalahNotifications();
   };
 
   // ── Deep Sleep ─────────────────────────────────────────────────────────────
   const handlePauseOverlay = async (minutes: number) => {
-    if (
-      !Capacitor.isNativePlatform() ||
-      Capacitor.getPlatform() !== "android"
-    ) {
-      alert("This feature is only available on Android native app.");
+    // Android: the native OverlayPlugin owns pause state + AlarmManager resume.
+    if (isAndroid) {
+      try {
+        const result = await (OverlayPlugin as any).pauseOverlay({ minutes });
+        if (result.success) {
+          setPauseUntil(result.pauseUntil);
+          setSelectedPauseDuration(minutes.toString());
+          await Preferences.set({
+            key: "selectedPauseDuration",
+            value: minutes.toString(),
+          });
+        }
+      } catch (e) {
+        console.error("Failed to pause overlay", e);
+      }
       return;
     }
-    try {
-      const result = await (OverlayPlugin as any).pauseOverlay({ minutes });
-      if (result.success) {
-        setPauseUntil(result.pauseUntil);
-        setSelectedPauseDuration(minutes.toString());
-        await Preferences.set({
-          key: "selectedPauseDuration",
-          value: minutes.toString(),
-        });
-      }
-    } catch (e) {
-      console.error("Failed to pause overlay", e);
+
+    // iOS: pause = skip the notification window, then reschedule after it.
+    if (isIos) {
+      const newPauseUntil = minutes > 0 ? Date.now() + minutes * 60 * 1000 : 0;
+      const durationValue = minutes > 0 ? minutes.toString() : "";
+      setPauseUntil(newPauseUntil);
+      setSelectedPauseDuration(durationValue);
+      await Preferences.set({
+        key: "pauseUntil",
+        value: newPauseUntil.toString(),
+      });
+      await Preferences.set({
+        key: "selectedPauseDuration",
+        value: durationValue,
+      });
+      await rescheduleSalahNotifications();
+      return;
     }
+
+    alert("This feature is only available on the mobile app.");
   };
 
   // (No onComplete callback needed — routing is derived from live permission
@@ -370,30 +397,32 @@ function App() {
           </div>
         </div>
 
-        {/* Popup Speed */}
-        <div className="action-row">
-          <div className="action-text">
-            <h3 className="action-title">
-              {isRtl ? "سرعة الإظهار" : "Popup Speed"}
-            </h3>
-            <p className="action-desc">
-              {isRtl
-                ? "تحديد مدة بقاء التذكير"
-                : "Select how long the popup stays visible"}
-            </p>
+        {/* Popup Speed — overlay display duration; not applicable to iOS notifications */}
+        {!isIos && (
+          <div className="action-row">
+            <div className="action-text">
+              <h3 className="action-title">
+                {isRtl ? "سرعة الإظهار" : "Popup Speed"}
+              </h3>
+              <p className="action-desc">
+                {isRtl
+                  ? "تحديد مدة بقاء التذكير"
+                  : "Select how long the popup stays visible"}
+              </p>
+            </div>
+            <div className="dropdown-container">
+              <select
+                value={popupSpeed}
+                onChange={(e) => changeSpeed(e.target.value)}
+                className="speed-dropdown"
+              >
+                <option value="slow">{isRtl ? "بطيء" : "Slow"}</option>
+                <option value="medium">{isRtl ? "متوسط" : "Medium"}</option>
+                <option value="fast">{isRtl ? "سريع" : "Fast"}</option>
+              </select>
+            </div>
           </div>
-          <div className="dropdown-container">
-            <select
-              value={popupSpeed}
-              onChange={(e) => changeSpeed(e.target.value)}
-              className="speed-dropdown"
-            >
-              <option value="slow">{isRtl ? "بطيء" : "Slow"}</option>
-              <option value="medium">{isRtl ? "متوسط" : "Medium"}</option>
-              <option value="fast">{isRtl ? "سريع" : "Fast"}</option>
-            </select>
-          </div>
-        </div>
+        )}
 
         {/* 1-Hour Timer */}
         <div className="action-row">
