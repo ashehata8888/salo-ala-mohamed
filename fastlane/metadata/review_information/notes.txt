@@ -1,18 +1,20 @@
-No account, login, or internet connection is required. All functionality is
-available immediately on first launch.
+This app does one thing: it gently reminds a Muslim to send Salawat — a short
+blessing on the Prophet Muhammad — throughout their ordinary day. 332 Arabic
+phrases are bundled in the binary so a different one appears each hour. No
+account, no internet, no data collected. Just a quiet reminder.
 
-The main screen is a settings panel. The user-facing feature on iOS is:
+HOW TO SEE IT
+1) The widget (main feature): long-press the home screen > "+" > search
+   "Salah Reminder" > Add Widget. A new phrase appears every hour.
+2) Hourly reminders: toggle the second row on the main screen and allow the
+   notification prompt. The first one fires at the next whole hour, so nothing
+   appears immediately.
 
-1. A home-screen widget. To see it: long-press the home screen > "+" (top left)
-   > search "صلِّ على محمد" > add the widget. It shows a different Salawat
-   phrase each hour, drawn from a 330-phrase pool bundled in the app.
+The app opens in Arabic — tap "English" in the Language row to switch.
 
-2. Hourly local notifications, enabled with the "تذكير كل ساعة" / "Hourly
-   Reminder" toggle on the main screen. These are scheduled locally on-device;
-   there is no push server. The first one fires at the next whole hour.
+Please test in Airplane Mode: the app makes no network requests at all. Nothing
+is loaded from a URL, there is no server, no analytics and no ads. iPad is
+supported.
 
-The app collects no data of any kind and has no backend. Privacy policy:
-https://sallialamuhammad.com/en/privacy
-
-Note on the interface language: the app defaults to Arabic. Use the
-"English" button in the Language row to switch the whole UI to English.
+Privacy: https://sallialamuhammad.com/ar/privacy
+Contact: dahabit@gmail.com
