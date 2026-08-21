@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor, registerPlugin } from "@capacitor/core";
@@ -161,7 +161,11 @@ function App() {
   }, [i18n.language]);
 
   // ── Permission helpers ─────────────────────────────────────────────────────
-  const checkPermission = async () => {
+  // Memoised: the 1s clock interval re-renders this component every second, and
+  // an unstable identity here made the listener effect below tear down and
+  // re-register `refreshPermissions`/`visibilitychange` on every one of those
+  // renders — a window in which a native nudge could land on no listener.
+  const checkPermission = useCallback(async () => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android")
       return;
     try {
@@ -179,7 +183,7 @@ function App() {
     } catch (e) {
       console.error("Checking permission failed", e);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // This function runs when the Native Java side sends the 'refreshPermissions' nudge
