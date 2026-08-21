@@ -1333,3 +1333,44 @@ $shimmer-highlight: rgba(255, 255, 255, 0.1);
     gap: 8px;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLET / LARGE SCREENS
+// ═══════════════════════════════════════════════════════════════════════════════
+// The whole UI is one centred column whose type is sized in rem, so raising the
+// root font size scales it as a unit. Spacing is mostly px, so the containers
+// that set the outer rhythm are widened explicitly alongside it. Without this the
+// app renders as a 520px card marooned in the middle of an iPad screen.
+
+@media (min-width: 768px) {
+  html {
+    font-size: 20px;
+  }
+
+  #root {
+    max-width: 640px;
+    padding: 2rem 1.75rem 3rem;
+  }
+
+  .glass-container {
+    padding: 38px 32px 42px;
+  }
+
+  .onboarding-screen {
+    height: calc(100vh - 64px);
+  }
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 22px;
+  }
+
+  #root {
+    max-width: 720px;
+  }
+
+  .glass-container {
+    padding: 44px 38px 48px;
+  }
+}
