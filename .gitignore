@@ -26,3 +26,10 @@ dist-ssr
 android/.gradle_cache/
 android/keystores/
 android/keystore.properties
+# Release artifacts
+build/
+fastlane/report.xml
+fastlane/Preview.html
+
+# Local environment
+.env
