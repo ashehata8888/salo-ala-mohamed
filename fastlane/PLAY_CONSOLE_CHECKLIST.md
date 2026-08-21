@@ -1,123 +1,146 @@
-# Google Play — manual submission checklist
+# Google Play — submission checklist (Arabic-only listing)
 
-Everything here has **no API**. `fastlane supply` cannot create the app, cannot perform the
-first upload, and cannot answer any of the policy forms. Do these by hand once; afterwards
-`fastlane android release` handles subsequent releases.
+Artifact: `build/SaloAlaMohamed-1.0.4-5.aab`
+3.6 MB · signed with `android/keystores/salo-release.jks` · versionCode 5 · versionName 1.0.4
 
-Artifact to upload: `android/app/build/outputs/bundle/release/app-release.aab`
-(3.6 MB, signed with `android/keystores/salo-release.jks`, versionCode 5 / versionName 1.0.4)
+None of the steps below have an API. `fastlane supply` cannot create the app, cannot
+perform the first upload, and cannot answer any policy form. Do this once by hand;
+from release #2 onwards `fastlane android release` handles it.
+
+---
+
+## 0. CHECK THIS FIRST — it decides whether you can ship today
+
+Play Console → **Settings → Developer account → Account details**
+
+| Account type | Consequence |
+|---|---|
+| **Organization** | Exempt. Publish straight to production today. |
+| **Personal**, created **before** 13 Nov 2023 | Exempt. Publish today. |
+| **Personal**, created **after** 13 Nov 2023 | **Blocked.** You must run a closed test with **12 testers opted in continuously for 14 days** before production access is granted. |
+
+If you fall in the third row there is no way around it — plan for a closed track
+today and production in two weeks. Recruit 14–15 testers rather than exactly 12, and
+make sure they actually open the app; installs alone do not count.
 
 ---
 
 ## 1. Create the app
-Play Console → **Create app**
-- App name: `صلِّ على محمد ﷺ`
-- Default language: Arabic
+
+- App name: `صل على محمد`
+- Default language: **Arabic**
 - App or game: **App** · Free or paid: **Free**
+- Declarations: confirm it meets Play policies and US export laws
 
-## 2. Store listing
-Paste from `fastlane/metadata/android/`:
+## 2. Store listing — Arabic only
 
-| Field | File |
+| Field | Source |
 |---|---|
-| Short description | `ar/short_description.txt` |
-| Full description | `ar/full_description.txt` |
-| App icon (512×512) | `images/icon.png` |
-| Feature graphic (1024×500) | `images/featureGraphic.jpg` |
-| Phone screenshots (4) | `images/phoneScreenshots/*.jpg` |
+| App name (30) | `fastlane/metadata/android/ar/title.txt` |
+| Short description (80) | `fastlane/metadata/android/ar/short_description.txt` |
+| Full description (4000) | `fastlane/metadata/android/ar/full_description.txt` |
+| App icon 512×512 | `fastlane/metadata/android/images/icon.png` |
+| Feature graphic 1024×500 | `fastlane/metadata/android/images/featureGraphic.jpg` |
+| Phone screenshots (4) | `fastlane/metadata/android/images/phoneScreenshots/*.jpg` |
 
-Add English (US) as a second language using `en-US/`.
+Do **not** add an English listing. The English phrase pool is 6 entries against 332
+Arabic; the English metadata is parked in `fastlane/deferred-english/` for a later
+release.
 
-## 3. Declarations that will be asked — and how to answer
+The feature graphic is required — the listing will not publish without it.
 
-These are the parts most likely to get this specific app held or rejected.
+## 3. App content — every section must be green
 
-### Foreground service — `FOREGROUND_SERVICE_SPECIAL_USE`  ⚠ highest risk
-Play asks for a written justification and a demo video. `specialUse` is the catch-all type and
-Google reviews it manually; the declared subtype is `unlock_listener`.
+### Privacy policy
+`https://sallialamuhammad.com/ar/privacy`
 
-Justification to give:
-> The app's single purpose is to display a short reminder to send Salawat on the Prophet when
-> the user unlocks their device. A foreground service is required to receive
-> `ACTION_USER_PRESENT`, which is not deliverable to a manifest-registered receiver on Android 8+.
-> No data is collected, transmitted, or stored off-device. The service does nothing else.
+### Data safety
+- Does your app collect or share any required user data types? → **No**
+- Is all data encrypted in transit? → n/a (nothing is transmitted)
+- Do you provide a way to delete data? → n/a
 
-If Google rejects `specialUse`, the fallback is to move the reminder to `AlarmManager` +
-notifications and drop the unlock trigger on Android.
+The app has no backend, no analytics, no ads and no account. Everything lives in
+`SharedPreferences` on-device. This matches the published policy, which Google
+cross-checks.
 
-### Display over other apps — `SYSTEM_ALERT_WINDOW`
-Declare that the overlay is the core user-facing feature, is user-triggered by unlocking,
-is dismissible, and never covers system UI or another app's sensitive input.
-
-### Battery optimization — `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`  ⚠ policy-restricted
-Google restricts this permission to a short list of app categories. A reminder app is **not**
-clearly on that list. Two options:
-- Declare it as required for reliable unlock detection on OEMs that kill background services, or
-- **Remove it** (`AndroidManifest.xml:64` + `OverlayPlugin.java:76`) and accept reduced
-  reliability on Xiaomi/Huawei/Oppo. This is the safer path if you want a clean first review.
-
-### Exact alarms — `SCHEDULE_EXACT_ALARM`
-Used only for the "pause until" resume in `OverlayPlugin.java:143-151`. Play requires a
-declaration. If you would rather avoid the form, switch those three calls to `setAndAllowWhileIdle`
-and drop the permission — the resume does not need second-level precision.
-
-### Data safety form
-Answer: **no data collected, no data shared.** The app has no backend, no analytics, no ads,
-no account. Everything lives in `SharedPreferences` on-device.
-
-### Content rating questionnaire
-Category: Reference / Books. No violence, no user content, no ads, no purchases.
+### Content rating (IARC questionnaire)
+Category **Reference / Books**. No violence, sexuality, profanity, gambling,
+user-generated content, ads or purchases. Expected outcome: rated for everyone.
 
 ### Target audience
-13+ (avoid the "designed for children" track — it adds a much stricter review).
-
-### App access
-"All functionality is available without special access" — there is no login.
+Age **13+**. Do not select an under-13 bracket — it pulls the app into Families
+policy and a much stricter review for no benefit here.
 
 ### Ads
-No ads.
+Contains ads → **No**
 
-### Privacy policy URL
-Arabic listing: `https://sallialamuhammad.com/ar/privacy`
-English listing: `https://sallialamuhammad.com/en/privacy`
+### App access
+**All functionality is available without special access** — there is no login.
 
-Both verified live (HTTP 200, last updated 14 Aug 2026). The policy already covers
-the overlay, foreground service, AlarmManager/WorkManager, iOS local notifications,
-the unused `INTERNET` permission, and under-13 users — it matches the "no data
-collected" Data safety answer above, so the two will not contradict each other.
+### Government apps / Financial features / Health
+No to all.
 
-Optional but worth filling in: Play's data-deletion field accepts
-`https://sallialamuhammad.com/ar/delete-data` (also live).
+## 4. Permission declarations — the risky part
 
-## 4. Release
-Production → Create new release → upload the AAB → paste release notes → roll out.
+### `FOREGROUND_SERVICE_SPECIAL_USE` ⚠ highest rejection risk
+Google reviews `specialUse` manually and may ask for a demo video. Declared subtype
+is `unlock_listener`.
+
+> The app's single purpose is to display a short reminder to send Salawat on the
+> Prophet when the user unlocks their device. A foreground service is required to
+> receive `ACTION_USER_PRESENT`, which is not deliverable to a manifest-registered
+> receiver on Android 8+. No data is collected, transmitted, or stored off-device.
+> The service performs no other work.
+
+If Google rejects it, the fallback is to drop the unlock trigger on Android and move
+the reminder to `AlarmManager` + notifications.
+
+### `SYSTEM_ALERT_WINDOW` (Display over other apps)
+Declare that the overlay *is* the core user-facing feature, is triggered by the user
+unlocking their own device, dismisses itself after a few seconds, and never covers
+system UI or another app's sensitive input.
+
+### `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` ⚠ policy-restricted
+Google limits this permission to a short list of app categories and a reminder app is
+not clearly on it. Two options:
+- Declare it as required for reliable unlock detection on OEMs that aggressively kill
+  background services, or
+- **Remove it** — `AndroidManifest.xml:64` and `OverlayPlugin.java:76` — and accept
+  reduced reliability on Xiaomi/Huawei/Oppo. Safer for a first review.
+
+Related: the app currently *forces* this permission. Declining it leaves the user
+stuck in onboarding, unable to reach the app at all (`src/App.tsx:343`). If you keep
+the permission, consider making that gate skippable before review.
+
+### `SCHEDULE_EXACT_ALARM`
+Used only for the pause-resume in `OverlayPlugin.java:143-151`. Requires a
+declaration. To avoid the form entirely, switch those calls to
+`setAndAllowWhileIdle` and drop the permission — the resume does not need
+second-level precision.
+
+## 5. Release
+
+Production (or Closed testing, per step 0) → Create new release → upload the AAB →
+release notes → roll out.
 
 ---
 
-## Open items you must supply
-
-1. **Google Play service-account JSON** — only needed to automate *future* releases via
-   `fastlane supply`. Play Console → Setup → API access → create service account with
-   "Release manager", download the JSON, then `export SUPPLY_JSON_KEY=/path/to.json`.
-
-## After the listing goes live
-
-`sallialamuhammad.com` currently links to
-`https://play.google.com/store/apps/details?id=com.salo.alahmuhammed`, which **404s**
-today because the app is not published yet. It will start resolving once the release
-rolls out. The App Store button on the site still says "coming soon" and will need the
-real link after Apple approves.
-
 ## Time-sensitive
 
-`targetSdkVersion` is **35** (`android/variables.gradle:4`). Google Play requires **API 36**
-for all new apps and updates submitted **on or after 31 Aug 2026** — 10 days from now.
-Submitting today at 35 is accepted; the *next* update will be rejected until you bump to 36.
-Note that API 36 also forbids locking orientation/aspect on screens ≥600dp.
+`targetSdkVersion` is **35** (`android/variables.gradle:4`). Google Play requires
+**API 36** for all new apps and updates submitted **on or after 31 Aug 2026**.
+Submitting before that date is accepted; the next update will be rejected until you
+bump. API 36 also forbids locking orientation/aspect on screens ≥600dp.
 
-## Known listing risk
+## Known listing weakness
 
-The supplied screenshots are marketing renders that use an **iPhone device frame**. Play flags
-Android listings that present iOS device frames. The images are otherwise compliant
-(1400×2778, ratio 1.98, JPEG, no alpha). Consider re-rendering these four panels in an Android
-frame — or frameless — before or shortly after the first submission.
+The four phone screenshots are marketing renders using an **iPhone device frame**.
+Google flags Android listings that present iOS frames. They are otherwise compliant
+(1400×2778, ratio 1.98, JPEG, no alpha). Re-render in an Android frame — or capture
+real Android screenshots, which also lets you show the unlock overlay, the actual
+hero feature.
+
+## After the listing is live
+
+In `salahapp-web/src/lib/config.ts` set `androidPublished: true` and redeploy, so the
+Play badge stops rendering as "coming soon".
