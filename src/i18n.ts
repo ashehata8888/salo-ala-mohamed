@@ -16,6 +16,9 @@ const resources = {
       "grant_permission": "منح الإذن",
       "permission_granted": "الإذن مفعل",
       "salah_desc": "تطبيق لتذكيرك بالصلاة على سيدنا محمد ﷺ \nفي كل مرة تفتح فيها هاتفك",
+      // iOS has no unlock trigger — the reminder arrives as a notification and
+      // through the home-screen widget. Claiming otherwise misdescribes the app.
+      "salah_desc_ios": "تطبيق لتذكيرك بالصلاة على سيدنا محمد ﷺ \nعلى مدار اليوم عبر التذكيرات وأداة الشاشة الرئيسية",
       "preview": "معاينة التذكير",
       "check_permission": "التحقق من الإذن",
       "permission": "الإذن"
@@ -34,6 +37,7 @@ const resources = {
       "grant_permission": "Grant Permission",
       "permission_granted": "Permission Granted",
       "salah_desc": "An app to remind you to send blessings upon Prophet Muhammad ﷺ every time you unlock your mobile",
+      "salah_desc_ios": "An app to remind you to send blessings upon Prophet Muhammad ﷺ through the day, with hourly reminders and a home-screen widget",
       "preview": "Preview Reminder",
       "check_permission": "Check Permission",
       "permission": "Permission"

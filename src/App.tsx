@@ -400,7 +400,9 @@ function App() {
       {/* ── Header ── */}
       <div className="app-header">
         <h1>{t("app_title")}</h1>
-        <p className="description">{t("salah_desc")}</p>
+        <p className="description">
+          {t(isIos ? "salah_desc_ios" : "salah_desc")}
+        </p>
         <div>
           <h4 className="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</h4>
           <span className="quran">
@@ -470,9 +472,13 @@ function App() {
               {isRtl ? "تذكير كل ساعة" : "Hourly Reminder"}
             </h3>
             <p className="action-desc">
-              {isRtl
-                ? "إظهار التذكير كل ساعة أثناء الاستخدام"
-                : "Show popup every hour during active use"}
+              {isIos
+                ? isRtl
+                  ? "إرسال تذكير كل ساعة"
+                  : "Send a reminder every hour"
+                : isRtl
+                  ? "إظهار التذكير كل ساعة أثناء الاستخدام"
+                  : "Show popup every hour during active use"}
             </p>
           </div>
           <button
@@ -487,12 +493,24 @@ function App() {
         <div className="action-row">
           <div className="action-text">
             <h3 className="action-title">
-              {isRtl ? "تقليل مرات الظهور" : "Reduce Popup Frequency"}
+              {isIos
+                ? isRtl
+                  ? "تقليل عدد التذكيرات"
+                  : "Reduce Reminder Frequency"
+                : isRtl
+                  ? "تقليل مرات الظهور"
+                  : "Reduce Popup Frequency"}
             </h3>
+            {/* On iOS this switches the notification interval from 1h to 2h
+                (see iosNotifications.ts); it has nothing to do with unlocking. */}
             <p className="action-desc">
-              {isRtl
-                ? "إظهار التذكير كل مرتين تفتح فيهم هاتفك"
-                : "Show the popup every second time you unlock your mobile"}
+              {isIos
+                ? isRtl
+                  ? "إرسال التذكير كل ساعتين بدلاً من كل ساعة"
+                  : "Send a reminder every two hours instead of every hour"
+                : isRtl
+                  ? "إظهار التذكير كل مرتين تفتح فيهم هاتفك"
+                  : "Show the popup every second time you unlock your mobile"}
             </p>
           </div>
 
