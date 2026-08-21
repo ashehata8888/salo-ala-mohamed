@@ -1,0 +1,18 @@
+No account, login, or internet connection is required. All functionality is
+available immediately on first launch.
+
+The main screen is a settings panel. The user-facing feature on iOS is:
+
+1. A home-screen widget. To see it: long-press the home screen > "+" (top left)
+   > search "صلِّ على محمد" > add the widget. It shows a different Salawat
+   phrase each hour, drawn from a 330-phrase pool bundled in the app.
+
+2. Hourly local notifications, enabled with the "تذكير كل ساعة" / "Hourly
+   Reminder" toggle on the main screen. These are scheduled locally on-device;
+   there is no push server. The first one fires at the next whole hour.
+
+The app collects no data of any kind and has no backend. Privacy policy:
+https://sallialamuhammad.com/en/privacy
+
+Note on the interface language: the app defaults to Arabic. Use the
+"English" button in the Language row to switch the whole UI to English.

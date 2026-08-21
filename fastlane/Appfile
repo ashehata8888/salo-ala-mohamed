@@ -1,0 +1,7 @@
+app_identifier("com.salo.alahmuhammed")
+team_id("V4RS9SZH59")
+
+# Google Play: path to a service-account JSON with "Release manager" access.
+# Not present on this machine yet — see fastlane/PLAY_CONSOLE_CHECKLIST.md.
+json_key_file(ENV["SUPPLY_JSON_KEY"] || "")
+package_name("com.salo.alahmuhammed")

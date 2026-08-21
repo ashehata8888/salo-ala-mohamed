@@ -1,0 +1,112 @@
+ASC_KEY_ID    = "4P5Y694GL6"
+ASC_KEY_PATH  = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{ASC_KEY_ID}.p8")
+XCODE_PROJECT = "../ios/App/App.xcodeproj"
+
+def asc_key
+  app_store_connect_api_key(
+    key_id:     ASC_KEY_ID,
+    issuer_id:  ENV.fetch("ASC_ISSUER_ID"),
+    key_filepath: ASC_KEY_PATH,
+    in_house:   false
+  )
+end
+
+platform :ios do
+  desc "Build web, sync Capacitor, and archive a signed App Store IPA"
+  lane :build do
+    sh("cd .. && npm run build && npx cap sync ios")
+    build_app(
+      project:      XCODE_PROJECT,
+      scheme:       "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "../build",
+      output_name:  "SaloAlaMohamed.ipa"
+    )
+  end
+
+  desc "Report the app's current state in App Store Connect (read-only)"
+  lane :info do
+    asc_key
+    apps = Spaceship::ConnectAPI::App.all
+    UI.important("#{apps.count} app(s) visible to this API key:")
+    apps.each do |a|
+      UI.message("  #{a.bundle_id.ljust(42)} #{a.name}")
+    end
+
+    target = apps.find { |a| a.bundle_id == "com.salo.alahmuhammed" }
+    if target.nil?
+      UI.error("com.salo.alahmuhammed is NOT registered in App Store Connect")
+    else
+      builds = target.get_builds
+      UI.important("builds for com.salo.alahmuhammed: #{builds.count}")
+      builds.first(10).each { |b| UI.message("  #{b.version} (#{b.processing_state})") }
+    end
+  end
+
+  desc "Create the App Store Connect record (run once, only if the app does not exist yet)"
+  lane :create_app do
+    produce(
+      api_key:        asc_key,
+      app_identifier: "com.salo.alahmuhammed",
+      app_name:       "صلِّ على محمد ﷺ",
+      language:       "Arabic",
+      app_version:    "1.0.4",
+      sku:            "salo-ala-mohamed-1004"
+    )
+  end
+
+  desc "Upload binary + metadata + screenshots and submit for review"
+  lane :release do
+    build
+    deliver(
+      api_key:  asc_key,
+      ipa:      "../build/SaloAlaMohamed.ipa",
+      submit_for_review: true,
+      automatic_release: true,
+      force:    true,              # skip the HTML metadata preview prompt
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false
+      }
+    )
+  end
+
+  desc "Push metadata + screenshots only (no binary)"
+  lane :metadata_only do
+    deliver(
+      api_key: asc_key,
+      skip_binary_upload: true,
+      skip_app_version_update: false,
+      force: true
+    )
+  end
+end
+
+platform :android do
+  desc "Build a signed release AAB"
+  lane :build do
+    sh("cd .. && npm run build && npx cap sync android")
+    gradle(
+      project_dir: "../android",
+      task: "bundle",
+      build_type: "Release"
+    )
+  end
+
+  # NOTE: `supply` cannot create the app or perform the FIRST upload — Google Play
+  # requires the initial AAB to be uploaded by hand in Play Console, and the policy
+  # declarations (Data safety, content rating, foreground-service justification) have
+  # no API at all. Use this lane for the SECOND release onwards.
+  desc "Upload AAB + listing to Play (only works after the first manual release)"
+  lane :release do
+    build
+    upload_to_play_store(
+      track: "production",
+      aab: "../android/app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_apk: true
+    )
+  end
+end

@@ -1,0 +1,18 @@
+A quiet, simple app that reminds you to send Salawat on the Prophet Muhammad ﷺ every time you unlock your phone.
+
+The Prophet ﷺ said: "Whoever sends one Salah upon me, Allah sends ten upon him."
+
+Features:
+• A gentle on-screen reminder each time you unlock your device.
+• An optional hourly reminder you can switch on or off at any time.
+• Over 330 authentic Salawat phrases in Arabic, rotating automatically so the words stay fresh.
+• Control how long each reminder stays on screen.
+• Pause reminders temporarily whenever you need to.
+• Arabic-first interface with complete English support.
+• Works entirely offline.
+
+Privacy:
+This app collects nothing about you. No accounts, no sign-in, no ads, no tracking. Everything stays on your device.
+
+A note on permissions:
+The app requests the "Display over other apps" permission to show the reminder on unlock, and runs a background service solely for that purpose.

@@ -1,0 +1,14 @@
+A quiet, simple app that reminds you to send Salawat on the Prophet Muhammad ﷺ throughout your day.
+
+The Prophet ﷺ said: "Whoever sends one Salah upon me, Allah sends ten upon him."
+
+Features:
+• A home-screen widget that shows a new Salawat phrase every hour, so you see it each time you glance at your phone.
+• Hourly reminders delivered to your lock screen.
+• Over 330 authentic Salawat phrases in Arabic, rotating automatically so the words stay fresh.
+• Full control over reminder timing and frequency.
+• Arabic-first interface with complete English support.
+• Works entirely offline.
+
+Privacy:
+This app collects nothing about you. No accounts, no sign-in, no ads, no tracking. Everything stays on your device.
