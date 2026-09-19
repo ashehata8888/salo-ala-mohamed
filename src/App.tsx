@@ -141,7 +141,8 @@ function App() {
             salahPhrases: phrases,
             enableActiveTimer: timerPref.value === "true",
             popupSpeed: speedPref.value !== null ? speedPref.value : "medium",
-            reducePopupFrequency: reducePref.value === "true"
+            reducePopupFrequency: reducePref.value === "true",
+            pauseUntil: pausePref.value !== null ? parseInt(pausePref.value, 10) : 0
           });
         } catch (e) {
           console.error("Failed to initial sync settings to native", e);
@@ -328,6 +329,13 @@ function App() {
             key: "selectedPauseDuration",
             value: minutes.toString(),
           });
+          await Preferences.set({
+            key: "pauseUntil",
+            value: result.pauseUntil.toString(),
+          });
+          if (minutes <= 0) {
+            await (OverlayPlugin as any).syncSettings({ pauseUntil: 0 });
+          }
         }
       } catch (e) {
         console.error("Failed to pause overlay", e);
