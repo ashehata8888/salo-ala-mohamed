@@ -98,6 +98,14 @@ public class OverlayPlugin extends Plugin {
         if (call.hasOption("userLang")) editor.putString("user_lang", call.getString("userLang"));
         if (call.hasOption("popupSpeed")) editor.putString("popup_speed", call.getString("popupSpeed"));
         if (call.hasOption("enableActiveTimer")) editor.putString("enable_active_timer", String.valueOf(call.getBoolean("enableActiveTimer", true)));
+        if (call.hasOption("enableHourlyVoice")) editor.putString("enable_hourly_voice", String.valueOf(call.getBoolean("enableHourlyVoice", true)));
+        
+        if (call.hasOption("voiceFrequency")) editor.putLong("voice_frequency", call.getInt("voiceFrequency", 3600000));
+        if (call.hasOption("voiceStartHour")) editor.putInt("voice_start_hour", call.getInt("voiceStartHour", 9));
+        if (call.hasOption("voiceEndHour")) editor.putInt("voice_end_hour", call.getInt("voiceEndHour", 23));
+        if (call.hasOption("voiceActiveDays")) editor.putString("voice_active_days", call.getString("voiceActiveDays", "[1,2,3,4,5,6,7]"));
+        if (call.hasOption("voiceVolume")) editor.putFloat("voice_volume", call.getDouble("voiceVolume", 1.0).floatValue());
+
         if (call.hasOption("reducePopupFrequency")) editor.putString("reducePopupFrequency", String.valueOf(call.getBoolean("reducePopupFrequency", false)));
         if (call.hasOption("pauseUntil")) editor.putString("pauseUntil", String.valueOf(call.getLong("pauseUntil", 0L)));
         if (call.hasOption("salahPhrases")) {
@@ -180,6 +188,47 @@ public class OverlayPlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("success", true);
         ret.put("pauseUntil", pauseUntil);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void startHourlyVoice(PluginCall call) {
+        Intent intent = new Intent(getContext(), HourlyVoiceReceiver.class);
+        intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
+        intent.setPackage(getContext().getPackageName());
+        int flags = android.app.PendingIntent.FLAG_CANCEL_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
+        }
+        android.app.PendingIntent pendingIntent = android.app.PendingIntent.getBroadcast(getContext(), 3, intent, flags);
+        android.app.AlarmManager alarmManager = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
+
+        // Remove setInexactRepeating and delegate scheduling to HourlyVoiceReceiver
+        HourlyVoiceReceiver.scheduleNextVoiceAlarm(getContext());
+
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void stopHourlyVoice(PluginCall call) {
+        Intent intent = new Intent(getContext(), HourlyVoiceReceiver.class);
+        intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
+        intent.setPackage(getContext().getPackageName());
+        int flags = android.app.PendingIntent.FLAG_CANCEL_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
+        }
+        android.app.PendingIntent pendingIntent = android.app.PendingIntent.getBroadcast(getContext(), 3, intent, flags);
+        android.app.AlarmManager alarmManager = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
+
+        if (alarmManager != null) {
+            alarmManager.cancel(pendingIntent);
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("success", true);
         call.resolve(ret);
     }
 }

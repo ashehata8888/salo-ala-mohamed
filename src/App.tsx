@@ -34,6 +34,7 @@ function App() {
     null,
   );
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
+  const [isHourlyVoiceEnabled, setIsHourlyVoiceEnabled] = useState(false);
   const [popupSpeed, setPopupSpeed] = useState("medium");
   const [reduceFrequency, setReduceFrequency] = useState(false);
   const [pauseUntil, setPauseUntil] = useState<number>(0);
@@ -42,6 +43,14 @@ function App() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   // permissionsChecked: false until the FIRST live checkPermission() call completes
   const [permissionsChecked, setPermissionsChecked] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"visual" | "voice">("visual");
+  const [voiceFrequency, setVoiceFrequency] = useState<number>(3600000);
+  const [voiceStartHour, setVoiceStartHour] = useState<number>(9);
+  const [voiceEndHour, setVoiceEndHour] = useState<number>(23);
+  const [voiceActiveDays, setVoiceActiveDays] = useState<number[]>([1,2,3,4,5,6,7]);
+  const [voiceVolume, setVoiceVolume] = useState<number>(1.0);
+
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
@@ -114,6 +123,45 @@ function App() {
         await Preferences.set({ key: "reducePopupFrequency", value: "false" });
       }
 
+      const hourlyVoicePref = await Preferences.get({ key: "enable_hourly_voice" });
+      if (hourlyVoicePref.value !== null) {
+        setIsHourlyVoiceEnabled(hourlyVoicePref.value === "true");
+        if (isAndroid) {
+          if (hourlyVoicePref.value === "true") {
+            try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
+          } else {
+            try { await (OverlayPlugin as any).stopHourlyVoice(); } catch(e) {}
+          }
+        }
+      } else {
+        setIsHourlyVoiceEnabled(true);
+        await Preferences.set({ key: "enable_hourly_voice", value: "true" });
+        if (isAndroid) {
+          try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
+        }
+      }
+
+      
+      const vfPref = await Preferences.get({ key: "voiceFrequency" });
+      if (vfPref.value !== null) {
+        setVoiceFrequency(parseInt(vfPref.value, 10));
+      } else {
+        setVoiceFrequency(3600000);
+        await Preferences.set({ key: "voiceFrequency", value: "3600000" });
+      }
+
+      const vshPref = await Preferences.get({ key: "voiceStartHour" });
+      if (vshPref.value !== null) setVoiceStartHour(parseInt(vshPref.value, 10));
+
+      const vehPref = await Preferences.get({ key: "voiceEndHour" });
+      if (vehPref.value !== null) setVoiceEndHour(parseInt(vehPref.value, 10));
+
+      const vadPref = await Preferences.get({ key: "voiceActiveDays" });
+      if (vadPref.value !== null) setVoiceActiveDays(JSON.parse(vadPref.value));
+
+      const vvPref = await Preferences.get({ key: "voiceVolume" });
+      if (vvPref.value !== null) setVoiceVolume(parseFloat(vvPref.value));
+
       const pausePref = await Preferences.get({ key: "pauseUntil" });
       if (pausePref.value !== null) {
         setPauseUntil(parseInt(pausePref.value, 10));
@@ -140,6 +188,14 @@ function App() {
             userLang: lang,
             salahPhrases: phrases,
             enableActiveTimer: timerPref.value === "true",
+            enableHourlyVoice: hourlyVoicePref.value !== null ? hourlyVoicePref.value === "true" : true,
+
+            voiceFrequency: vfPref.value !== null ? parseInt(vfPref.value, 10) : 3600000,
+            voiceStartHour: vshPref.value !== null ? parseInt(vshPref.value, 10) : 9,
+            voiceEndHour: vehPref.value !== null ? parseInt(vehPref.value, 10) : 23,
+            voiceActiveDays: vadPref.value !== null ? vadPref.value : "[1,2,3,4,5,6,7]",
+            voiceVolume: vvPref.value !== null ? parseFloat(vvPref.value) : 1.0,
+
             popupSpeed: speedPref.value !== null ? speedPref.value : "medium",
             reducePopupFrequency: reducePref.value === "true",
             pauseUntil: pausePref.value !== null ? parseInt(pausePref.value, 10) : 0
@@ -293,6 +349,56 @@ function App() {
     await rescheduleSalahNotifications();
   };
 
+  
+  const syncVoiceSettings = async (updates: any) => {
+    for (const key in updates) {
+      const val = updates[key];
+      await Preferences.set({ key, value: typeof val === 'object' ? JSON.stringify(val) : val.toString() });
+      if (key === 'voiceFrequency') setVoiceFrequency(val);
+      if (key === 'voiceStartHour') setVoiceStartHour(val);
+      if (key === 'voiceEndHour') setVoiceEndHour(val);
+      if (key === 'voiceActiveDays') setVoiceActiveDays(val);
+      if (key === 'voiceVolume') setVoiceVolume(val);
+    }
+    if (isAndroid) {
+      try { await (OverlayPlugin as any).syncSettings({
+        voiceFrequency: updates.voiceFrequency !== undefined ? updates.voiceFrequency : voiceFrequency,
+        voiceStartHour: updates.voiceStartHour !== undefined ? updates.voiceStartHour : voiceStartHour,
+        voiceEndHour: updates.voiceEndHour !== undefined ? updates.voiceEndHour : voiceEndHour,
+        voiceActiveDays: updates.voiceActiveDays !== undefined ? JSON.stringify(updates.voiceActiveDays) : JSON.stringify(voiceActiveDays),
+        voiceVolume: updates.voiceVolume !== undefined ? updates.voiceVolume : voiceVolume
+      }); } catch (e) {}
+      if (isHourlyVoiceEnabled && updates.voiceFrequency !== undefined) {
+        try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
+      }
+    }
+  };
+
+  const handleTestVolume = (vol: number) => {
+    const audio = new Audio('/sali_voice.mp3');
+    audio.volume = vol;
+    audio.play().catch(e => console.log('Audio preview failed:', e));
+  };
+
+
+  // ── Hourly Voice Toggle ────────────────────────────────────────────────────
+  const toggleHourlyVoice = async () => {
+    const newValue = !isHourlyVoiceEnabled;
+    setIsHourlyVoiceEnabled(newValue);
+    await Preferences.set({
+      key: "enable_hourly_voice",
+      value: newValue.toString(),
+    });
+    if (isAndroid) {
+      try { await (OverlayPlugin as any).syncSettings({ enableHourlyVoice: newValue }); } catch (e) {}
+      if (newValue) {
+        try { await (OverlayPlugin as any).startHourlyVoice(); } catch (e) {}
+      } else {
+        try { await (OverlayPlugin as any).stopHourlyVoice(); } catch (e) {}
+      }
+    }
+  };
+
   // ── Speed ──────────────────────────────────────────────────────────────────
   const changeSpeed = async (speed: string) => {
     setPopupSpeed(speed);
@@ -411,170 +517,302 @@ function App() {
         </div>
       </div>
 
+      
       {/* ── Settings section ── */}
       <div className={`settings-section ${isRtl ? "rtl" : "ltr"}`}>
-        <span className="section-label">{t("settings")}</span>
-
-        {/* Language */}
-        <div className="action-row">
-          <div className="action-text">
-            <h3 className="action-title">{t("language")}</h3>
-          </div>
-          <div className="lang-toggle">
-            <button
-              className={`lang-btn ${i18n.language === "ar" ? "active" : ""}`}
-              onClick={() => changeLanguage("ar")}
-            >
-              {t("arabic")}
-            </button>
-            <button
-              className={`lang-btn ${i18n.language === "en" ? "active" : ""}`}
-              onClick={() => changeLanguage("en")}
-            >
-              {t("english")}
-            </button>
-          </div>
-        </div>
-
-        {/* Popup Speed — overlay display duration; not applicable to iOS notifications */}
-        {!isIos && (
-          <div className="action-row">
-            <div className="action-text">
-              <h3 className="action-title">
-                {isRtl ? "سرعة الإظهار" : "Popup Speed"}
-              </h3>
-              <p className="action-desc">
-                {isRtl
-                  ? "تحديد مدة بقاء التذكير"
-                  : "Select how long the popup stays visible"}
-              </p>
-            </div>
-            <div className="dropdown-container">
-              <select
-                value={popupSpeed}
-                onChange={(e) => changeSpeed(e.target.value)}
-                className="speed-dropdown"
-              >
-                <option value="slow">{isRtl ? "بطيء" : "Slow"}</option>
-                <option value="medium">{isRtl ? "متوسط" : "Medium"}</option>
-                <option value="fast">{isRtl ? "سريع" : "Fast"}</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* 1-Hour Timer */}
-        <div className="action-row">
-          <div className="action-text">
-            <h3 className="action-title">
-              {isRtl ? "تذكير كل ساعة" : "Hourly Reminder"}
-            </h3>
-            <p className="action-desc">
-              {isRtl
-                ? "إظهار التذكير كل ساعة أثناء الاستخدام"
-                : "Show popup every hour during active use"}
-            </p>
-          </div>
-          <button
-            className={`toggle-btn ${isTimerEnabled ? "toggle-on" : "toggle-off"}`}
-            onClick={toggleTimer}
+        <div className="tabs-container">
+          <button 
+            className={`tab-btn ${activeTab === "visual" ? "active" : ""}`}
+            onClick={() => setActiveTab("visual")}
           >
-            <span className="toggle-thumb" />
+            {isRtl ? "التذكير المرئي" : "Visual Reminder"}
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === "voice" ? "active" : ""}`}
+            onClick={() => setActiveTab("voice")}
+          >
+            {isRtl ? "التذكير الصوتي" : "Voice Reminder"}
           </button>
         </div>
 
-        {/* ── Popup Frequency Section ── */}
-        <div className="action-row">
-          <div className="action-text">
-            <h3 className="action-title">
-              {isRtl ? "تقليل مرات الظهور" : "Reduce Popup Frequency"}
-            </h3>
-            <p className="action-desc">
-              {isRtl
-                ? "إظهار التذكير كل مرتين تفتح فيهم هاتفك"
-                : "Show the popup every second time you unlock your mobile"}
-            </p>
-          </div>
+        {activeTab === "visual" && (
+          <div className="tab-content">
+            {/* Language */}
+            <div className="action-row">
+              <div className="action-text">
+                <h3 className="action-title">{t("language")}</h3>
+              </div>
+              <div className="lang-toggle">
+                <button
+                  className={`lang-btn ${i18n.language === "ar" ? "active" : ""}`}
+                  onClick={() => changeLanguage("ar")}
+                >
+                  {t("arabic")}
+                </button>
+                <button
+                  className={`lang-btn ${i18n.language === "en" ? "active" : ""}`}
+                  onClick={() => changeLanguage("en")}
+                >
+                  {t("english")}
+                </button>
+              </div>
+            </div>
 
-          <button
-            className={`toggle-btn ${reduceFrequency ? "toggle-on" : "toggle-off"}`}
-            onClick={handleToggleFrequency}
-          >
-            <span className="toggle-thumb" />
-          </button>
-        </div>
+            {/* Popup Speed */}
+            {!isIos && (
+              <div className="action-row">
+                <div className="action-text">
+                  <h3 className="action-title">
+                    {isRtl ? "سرعة الإظهار" : "Popup Speed"}
+                  </h3>
+                  <p className="action-desc">
+                    {isRtl
+                      ? "تحديد مدة بقاء التذكير"
+                      : "Select how long the popup stays visible"}
+                  </p>
+                </div>
+                <div className="dropdown-container">
+                  <select
+                    value={popupSpeed}
+                    onChange={(e) => changeSpeed(e.target.value)}
+                    className="speed-dropdown"
+                  >
+                    <option value="slow">{isRtl ? "بطيء" : "Slow"}</option>
+                    <option value="medium">{isRtl ? "متوسط" : "Medium"}</option>
+                    <option value="fast">{isRtl ? "سريع" : "Fast"}</option>
+                  </select>
+                </div>
+              </div>
+            )}
 
-        {/* ── Temporary Pause Section ── */}
-        <div className="action-row temp-pause-section">
-          <div className="dropdown-pause-container">
-            <div className="action-text">
-              <h3 className="action-title">
-                {isRtl ? "إيقاف مؤقت" : "Temp Pause"}
-              </h3>
-              {currentTime < pauseUntil ? (
-                <p className="action-desc status">
-                  <label> {isRtl ? "الحالة:" : "Status:"}</label>{" "}
-                  {currentTime < pauseUntil
-                    ? isRtl
-                      ? "متوقف مؤقتاً"
-                      : "Paused"
-                    : isRtl
-                      ? "نشط"
-                      : "Active"}
-                </p>
-              ) : (
+            {/* 1-Hour Timer */}
+            <div className="action-row">
+              <div className="action-text">
+                <h3 className="action-title">
+                  {isRtl ? "تذكير كل ساعة" : "Hourly Reminder"}
+                </h3>
                 <p className="action-desc">
                   {isRtl
-                    ? "سيتم أعادة تفعيل التذكير تلقائيا"
-                    : "Will be resumed automatically"}
+                    ? "إظهار التذكير كل ساعة أثناء الاستخدام"
+                    : "Show popup every hour during active use"}
                 </p>
-              )}
-            </div>
-
-            <div className="dropdown-container">
-              <select
-                value={currentTime < pauseUntil ? selectedPauseDuration : ""}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handlePauseOverlay(parseInt(e.target.value, 10));
-                  }
-                }}
-                className="speed-dropdown"
-              >
-                <option value="" disabled>
-                  {isRtl ? "اختر المدة" : "Select Duration"}
-                </option>
-                <option value="1440">{isRtl ? "يوم واحد" : "1 Day"}</option>
-                <option value="2880">{isRtl ? "يومان" : "2 Days"}</option>
-                <option value="4320">{isRtl ? "ثلاثة ايام" : "3 Days"}</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Cancel Pause Switch - Only visible when a pause is active */}
-          {currentTime < pauseUntil && (
-            <div className="cancel-pause-container">
-              <p className="action-desc" style={{ margin: 0 }}>
-                {isRtl ? "إلغاء الإيقاف" : "Cancel Pause"}
-              </p>
+              </div>
               <button
-                className="toggle-btn toggle-off"
-                onClick={() => {
-                  if (currentTime < pauseUntil) {
-                    handlePauseOverlay(0);
-                  }
-                }}
-                disabled={currentTime >= pauseUntil}
-                style={{ opacity: currentTime < pauseUntil ? 1 : 0.4 }}
+                className={`toggle-btn ${isTimerEnabled ? "toggle-on" : "toggle-off"}`}
+                onClick={toggleTimer}
               >
                 <span className="toggle-thumb" />
               </button>
             </div>
-          )}
-        </div>
+
+            {/* Reduce Popup Frequency Section */}
+            <div className="action-row">
+              <div className="action-text">
+                <h3 className="action-title">
+                  {isRtl ? "تقليل مرات الظهور" : "Reduce Popup Frequency"}
+                </h3>
+                <p className="action-desc">
+                  {isRtl
+                    ? "إظهار التذكير كل مرتين تفتح فيهم هاتفك"
+                    : "Show the popup every second time you unlock your mobile"}
+                </p>
+              </div>
+
+              <button
+                className={`toggle-btn ${reduceFrequency ? "toggle-on" : "toggle-off"}`}
+                onClick={handleToggleFrequency}
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </div>
+
+            {/* Temporary Pause Section */}
+            <div className="action-row temp-pause-section">
+              <div className="dropdown-pause-container">
+                <div className="action-text">
+                  <h3 className="action-title">
+                    {isRtl ? "إيقاف مؤقت" : "Temp Pause"}
+                  </h3>
+                  {currentTime < pauseUntil ? (
+                    <p className="action-desc status">
+                      <label> {isRtl ? "الحالة:" : "Status:"}</label>{" "}
+                      {currentTime < pauseUntil
+                        ? isRtl
+                          ? "متوقف مؤقتاً"
+                          : "Paused"
+                        : isRtl
+                          ? "نشط"
+                          : "Active"}
+                    </p>
+                  ) : (
+                    <p className="action-desc">
+                      {isRtl
+                        ? "سيتم أعادة تفعيل التذكير تلقائيا"
+                        : "Will be resumed automatically"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="dropdown-container">
+                  <select
+                    value={currentTime < pauseUntil ? selectedPauseDuration : ""}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handlePauseOverlay(parseInt(e.target.value, 10));
+                      }
+                    }}
+                    className="speed-dropdown"
+                  >
+                    <option value="" disabled>
+                      {isRtl ? "اختر المدة" : "Select Duration"}
+                    </option>
+                    <option value="1440">{isRtl ? "يوم واحد" : "1 Day"}</option>
+                    <option value="2880">{isRtl ? "يومان" : "2 Days"}</option>
+                    <option value="4320">{isRtl ? "ثلاثة ايام" : "3 Days"}</option>
+                  </select>
+                </div>
+              </div>
+
+              {currentTime < pauseUntil && (
+                <div className="cancel-pause-container">
+                  <p className="action-desc" style={{ margin: 0 }}>
+                    {isRtl ? "إلغاء الإيقاف" : "Cancel Pause"}
+                  </p>
+                  <button
+                    className="toggle-btn toggle-off"
+                    onClick={() => {
+                      if (currentTime < pauseUntil) {
+                        handlePauseOverlay(0);
+                      }
+                    }}
+                    disabled={currentTime >= pauseUntil}
+                    style={{ opacity: currentTime < pauseUntil ? 1 : 0.4 }}
+                  >
+                    <span className="toggle-thumb" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "voice" && (
+          <div className="tab-content">
+            <div className="action-row">
+              <div className="action-text">
+                <h3 className="action-title">
+                  {isRtl ? "تذكير صوتي" : "Voice Reminder"}
+                </h3>
+                <p className="action-desc">
+                  {isRtl
+                    ? "تشغيل التذكير الصوتي"
+                    : "Play voice reminder"}
+                </p>
+              </div>
+              <button
+                className={`toggle-btn ${isHourlyVoiceEnabled ? "toggle-on" : "toggle-off"}`}
+                onClick={toggleHourlyVoice}
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </div>
+
+            {isHourlyVoiceEnabled && (
+              <div className="voice-advanced-controls">
+                <div className="control-item row-layout">
+                  <label>{isRtl ? "تكرار التذكير كل" : "Frequency"}</label>
+                  <select 
+                    value={voiceFrequency.toString()} 
+                    onChange={(e) => syncVoiceSettings({ voiceFrequency: Number(e.target.value) })}
+                    className="speed-dropdown"
+                  >
+                    <option value="120000">{isRtl ? "دقيقتين" : "2 Mins"}</option>
+                    <option value="1800000">{isRtl ? "30 دقيقة" : "30 Mins"}</option>
+                    <option value="3600000">{isRtl ? "ساعة واحدة" : "1 Hour"}</option>
+                    <option value="7200000">{isRtl ? "ساعتان" : "2 Hours"}</option>
+                  </select>
+                </div>
+
+                <div className="control-item row-layout">
+                  <label>{isRtl ? "ساعات العمل" : "Active Hours"}</label>
+                  <div className="time-pickers">
+                    <select 
+                      value={voiceStartHour} 
+                      onChange={(e) => syncVoiceSettings({ voiceStartHour: parseInt(e.target.value, 10) })}
+                      className="speed-dropdown tiny-select"
+                    >
+                      {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{i}:00</option>)}
+                    </select>
+                    <span className="time-sep"> - </span>
+                    <select 
+                      value={voiceEndHour} 
+                      onChange={(e) => syncVoiceSettings({ voiceEndHour: parseInt(e.target.value, 10) })}
+                      className="speed-dropdown tiny-select"
+                    >
+                      {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{i}:00</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="control-item col-layout">
+                  <label>{isRtl ? "أيام العمل" : "Active Days"}</label>
+                  <div className="days-row">
+                    {[
+                      { val: 1, ar: "أح", en: "Su" },
+                      { val: 2, ar: "إث", en: "Mo" },
+                      { val: 3, ar: "ثل", en: "Tu" },
+                      { val: 4, ar: "أر", en: "We" },
+                      { val: 5, ar: "خم", en: "Th" },
+                      { val: 6, ar: "جم", en: "Fr" },
+                      { val: 7, ar: "سب", en: "Sa" }
+                    ].map(day => (
+                      <button 
+                        key={day.val}
+                        className={`day-btn ${voiceActiveDays.includes(day.val) ? "active" : ""}`}
+                        onClick={() => {
+                          const active = voiceActiveDays.includes(day.val);
+                          const nextDays = active ? voiceActiveDays.filter(d => d !== day.val) : [...voiceActiveDays, day.val];
+                          syncVoiceSettings({ voiceActiveDays: nextDays });
+                        }}
+                      >
+                        {isRtl ? day.ar : day.en}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="control-item col-layout">
+                  <label className="vol-label">
+                    {isRtl ? "مستوى الصوت" : "Volume"} 
+                    <span className="vol-percent">{Math.round(voiceVolume * 100)}%</span>
+                  </label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05" 
+                    value={voiceVolume} 
+                    onChange={(e) => setVoiceVolume(Number(e.target.value))}
+                    onTouchEnd={(e) => {
+                      const vol = Number((e.target as HTMLInputElement).value);
+                      syncVoiceSettings({ voiceVolume: vol });
+                      handleTestVolume(vol);
+                    }}
+                    onMouseUp={(e) => {
+                      const vol = Number((e.target as HTMLInputElement).value);
+                      syncVoiceSettings({ voiceVolume: vol });
+                      handleTestVolume(vol);
+                    }}
+                    className="volume-slider"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Permission section — only rendered when NOT granted ── */}
+{/* ── Permission section — only rendered when NOT granted ── */}
       {isAndroid && (!hasPermission || isBatteryOptimized === false) && (
         <div
           className={`settings-section permission-section ${isRtl ? "rtl" : "ltr"}`}
