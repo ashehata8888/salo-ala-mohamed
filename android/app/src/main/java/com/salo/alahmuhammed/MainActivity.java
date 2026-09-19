@@ -60,7 +60,8 @@ public void onResume() {
     private void injectLangIntoWebView() {
         try {
             // Capacitor Preferences stores keys under "CapacitorStorage" namespace
-            SharedPreferences prefs = getSharedPreferences(
+            android.content.Context storageContext = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N ? createDeviceProtectedStorageContext() : this;
+            SharedPreferences prefs = storageContext.getSharedPreferences(
                     "CapacitorStorage", MODE_PRIVATE);
             String lang = prefs.getString("user_lang", "ar"); // default Arabic
 

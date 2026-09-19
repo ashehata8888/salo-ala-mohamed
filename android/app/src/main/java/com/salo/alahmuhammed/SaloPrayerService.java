@@ -105,7 +105,8 @@ public class SaloPrayerService extends Service {
                     unlockHandler.removeCallbacksAndMessages(null);
                     unlockHandler.post(() -> {
                         try {
-                            android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                            android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
+                            android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
                             long pauseUntil = 0;
                             try { pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0")); } catch (Exception ignored) {}
                             
@@ -138,7 +139,8 @@ public class SaloPrayerService extends Service {
             }
         };
 
-        android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? createDeviceProtectedStorageContext() : this;
+        android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         long pauseUntil = 0;
         try {
             pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0"));
@@ -162,7 +164,8 @@ public class SaloPrayerService extends Service {
         timerHandler.removeCallbacks(timerRunnable);
         isTimerRunning = false;
         
-        android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? createDeviceProtectedStorageContext() : this;
+        android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         boolean isTimerEnabled = Boolean.parseBoolean(prefs.getString("enable_active_timer", "true"));
         long pauseUntil = 0;
         try { pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0")); } catch (Exception ignored) {}
@@ -216,7 +219,8 @@ public class SaloPrayerService extends Service {
             if ("com.salo.alahmuhammed.PAUSE_SERVICE".equals(action)) {
                 stopActiveHourTracker();
             } else if ("com.salo.alahmuhammed.RESUME_SERVICE".equals(action)) {
-                android.content.SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? createDeviceProtectedStorageContext() : this;
+                android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
                 prefs.edit().putString("pauseUntil", "0").apply();
                 checkAndRegisterReceiver();
                 startActiveHourTracker();

@@ -90,9 +90,34 @@ public class OverlayPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void syncSettings(PluginCall call) {
+        android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? getContext().createDeviceProtectedStorageContext() : getContext();
+        android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+
+        if (call.hasOption("userLang")) editor.putString("user_lang", call.getString("userLang"));
+        if (call.hasOption("popupSpeed")) editor.putString("popup_speed", call.getString("popupSpeed"));
+        if (call.hasOption("enableActiveTimer")) editor.putString("enable_active_timer", String.valueOf(call.getBoolean("enableActiveTimer", true)));
+        if (call.hasOption("reducePopupFrequency")) editor.putString("reducePopupFrequency", String.valueOf(call.getBoolean("reducePopupFrequency", false)));
+        if (call.hasOption("pauseUntil")) editor.putString("pauseUntil", String.valueOf(call.getLong("pauseUntil", 0L)));
+        if (call.hasOption("salahPhrases")) {
+            try {
+                com.getcapacitor.JSArray phrases = call.getArray("salahPhrases");
+                if (phrases != null) {
+                    editor.putString("salah_phrases", phrases.toString());
+                }
+            } catch (Exception e) {}
+        }
+
+        editor.apply();
+        call.resolve();
+    }
+
+    @PluginMethod
     public void pauseOverlay(PluginCall call) {
         int minutes = call.getInt("minutes", 0);
-        android.content.SharedPreferences prefs = getContext().getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
+        android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? getContext().createDeviceProtectedStorageContext() : getContext();
+        android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
 
         Intent resumeIntent = new Intent(getContext(), BootReceiver.class);
         resumeIntent.setAction("com.salo.alahmuhammed.RESUME_SERVICE");
