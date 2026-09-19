@@ -33,7 +33,7 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
             int startHour = prefs.getInt("voice_start_hour", 9);
             int endHour = prefs.getInt("voice_end_hour", 23);
             String activeDaysStr = prefs.getString("voice_active_days", "[1,2,3,4,5,6,7]");
-            float volume = prefs.getFloat("voice_volume", 1.0f);
+            float volume = prefs.getFloat("voice_volume", 0.5f);
             if (volume > 1.0f) {
                 volume = volume / 100.0f;
             }

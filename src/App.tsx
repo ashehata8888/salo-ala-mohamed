@@ -49,7 +49,7 @@ function App() {
   const [voiceStartHour, setVoiceStartHour] = useState<number>(9);
   const [voiceEndHour, setVoiceEndHour] = useState<number>(23);
   const [voiceActiveDays, setVoiceActiveDays] = useState<number[]>([1,2,3,4,5,6,7]);
-  const [voiceVolume, setVoiceVolume] = useState<number>(1.0);
+  const [voiceVolume, setVoiceVolume] = useState<number>(0.5);
 
 
   useEffect(() => {
@@ -194,7 +194,7 @@ function App() {
             voiceStartHour: vshPref.value !== null ? parseInt(vshPref.value, 10) : 9,
             voiceEndHour: vehPref.value !== null ? parseInt(vehPref.value, 10) : 23,
             voiceActiveDays: vadPref.value !== null ? vadPref.value : "[1,2,3,4,5,6,7]",
-            voiceVolume: vvPref.value !== null ? parseFloat(vvPref.value) : 1.0,
+            voiceVolume: vvPref.value !== null ? parseFloat(vvPref.value) : 0.5,
 
             popupSpeed: speedPref.value !== null ? speedPref.value : "medium",
             reducePopupFrequency: reducePref.value === "true",

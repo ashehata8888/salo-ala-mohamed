@@ -29,6 +29,20 @@ public class OverlayPlugin extends Plugin {
                 return;
             }
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
+            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+                
+                JSObject ret = new JSObject();
+                ret.put("granted", false);
+                call.resolve(ret);
+                return;
+            }
+        }
         JSObject ret = new JSObject();
         ret.put("granted", true);
         call.resolve(ret);
@@ -39,6 +53,12 @@ public class OverlayPlugin extends Plugin {
         boolean granted = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             granted = Settings.canDrawOverlays(getContext());
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
+            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                granted = false;
+            }
         }
         JSObject ret = new JSObject();
         ret.put("granted", granted);
@@ -104,7 +124,7 @@ public class OverlayPlugin extends Plugin {
         if (call.hasOption("voiceStartHour")) editor.putInt("voice_start_hour", call.getInt("voiceStartHour", 9));
         if (call.hasOption("voiceEndHour")) editor.putInt("voice_end_hour", call.getInt("voiceEndHour", 23));
         if (call.hasOption("voiceActiveDays")) editor.putString("voice_active_days", call.getString("voiceActiveDays", "[1,2,3,4,5,6,7]"));
-        if (call.hasOption("voiceVolume")) editor.putFloat("voice_volume", call.getDouble("voiceVolume", 1.0).floatValue());
+        if (call.hasOption("voiceVolume")) editor.putFloat("voice_volume", call.getDouble("voiceVolume", 0.5).floatValue());
 
         if (call.hasOption("reducePopupFrequency")) editor.putString("reducePopupFrequency", String.valueOf(call.getBoolean("reducePopupFrequency", false)));
         if (call.hasOption("pauseUntil")) editor.putString("pauseUntil", String.valueOf(call.getLong("pauseUntil", 0L)));
