@@ -134,6 +134,20 @@ function App() {
         value: JSON.stringify(phrases),
       });
 
+      if (isAndroid) {
+        try {
+          await (OverlayPlugin as any).syncSettings({
+            userLang: lang,
+            salahPhrases: phrases,
+            enableActiveTimer: timerPref.value === "true",
+            popupSpeed: speedPref.value !== null ? speedPref.value : "medium",
+            reducePopupFrequency: reducePref.value === "true"
+          });
+        } catch (e) {
+          console.error("Failed to initial sync settings to native", e);
+        }
+      }
+
       // iOS reminder = local notifications. Top up the rolling schedule on
       // every launch once preferences (timer/frequency/pause) are loaded.
       await rescheduleSalahNotifications();
@@ -252,6 +266,14 @@ function App() {
       value: JSON.stringify(phrases),
     });
 
+    if (isAndroid) {
+      try {
+        await (OverlayPlugin as any).syncSettings({ userLang: lng, salahPhrases: phrases });
+      } catch (e) {
+        console.error("Failed to sync language settings to native", e);
+      }
+    }
+
     // iOS: re-issue notifications in the newly selected language.
     await rescheduleSalahNotifications();
   };
@@ -264,6 +286,9 @@ function App() {
       key: "enable_active_timer",
       value: newValue.toString(),
     });
+    if (isAndroid) {
+      try { await (OverlayPlugin as any).syncSettings({ enableActiveTimer: newValue }); } catch (e) {}
+    }
     await rescheduleSalahNotifications();
   };
 
@@ -271,6 +296,9 @@ function App() {
   const changeSpeed = async (speed: string) => {
     setPopupSpeed(speed);
     await Preferences.set({ key: "popup_speed", value: speed });
+    if (isAndroid) {
+      try { await (OverlayPlugin as any).syncSettings({ popupSpeed: speed }); } catch (e) {}
+    }
   };
 
   // ── Frequency Toggle ───────────────────────────────────────────────────────
@@ -281,6 +309,9 @@ function App() {
       key: "reducePopupFrequency",
       value: newValue.toString(),
     });
+    if (isAndroid) {
+      try { await (OverlayPlugin as any).syncSettings({ reducePopupFrequency: newValue }); } catch (e) {}
+    }
     await rescheduleSalahNotifications();
   };
 

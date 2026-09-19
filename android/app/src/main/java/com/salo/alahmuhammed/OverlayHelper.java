@@ -25,30 +25,29 @@ public class OverlayHelper {
     private static boolean isRemoving = false;
 
     private static int calculateDuration(Context context, int textLength) {
-        android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
+        android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         String speedPref = prefs.getString("popup_speed", "medium");
         
-        int baseMs, charMultiplier;
+        int charMultiplier;
         switch(speedPref) {
             case "fast":
-                baseMs = 1500;
                 charMultiplier = 50;
                 break;
             case "slow":
-                baseMs = 5000;
-                charMultiplier = 130;
+                charMultiplier = 110;
                 break;
             case "medium":
             default:
-                baseMs = 3000;
-                charMultiplier = 90;
+                charMultiplier = 77;
                 break;
         }
-        return Math.min(15000, baseMs + (textLength * charMultiplier));
+        return textLength * charMultiplier;
     }
 
     public static boolean isTempStopActive(Context context) {
-        android.content.SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
+        android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         long pauseUntil = 0;
         try {
             pauseUntil = Long.parseLong(prefs.getString("pauseUntil", "0"));
@@ -75,7 +74,8 @@ public class OverlayHelper {
                     handler.removeCallbacks(dismissRunnable);
                 }
                 
-                SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+                android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
+                SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
                 String lang = prefs.getString("user_lang", "ar");
                 String defaultText = lang.equals("en") ? "Peace be upon Prophet Muhammad \u200E\uFDDF" : "اللهم صل وسلم على نبينا محمد \u200E\uFDDF";
                 String text = defaultText;
@@ -114,7 +114,8 @@ public class OverlayHelper {
             final WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
             if (windowManager == null) return;
 
-            SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+            android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
+            SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
             String lang = prefs.getString("user_lang", "ar");
             String defaultText = lang.equals("en") ? "Peace be upon Prophet Muhammad \u200E\uFDDF" : "اللهم صل وسلم على نبينا محمد \u200E\uFDDF";
             String text = defaultText;
