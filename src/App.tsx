@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor, registerPlugin } from "@capacitor/core";
@@ -6,7 +6,17 @@ import { salahPhrases } from "./salahPhrases";
 import { salahPhrasesEn } from "./salahPhrasesEn";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { rescheduleSalahNotifications } from "./iosNotifications";
+import { Calendar } from 'primereact/calendar';
+import 'primereact/resources/themes/lara-dark-amber/theme.css';
+import 'primereact/resources/primereact.min.css';
+import 'primeicons/primeicons.css';
 import "./main.scss";
+
+type VoiceSchedule = {
+  days: number[];
+  startMinutes: number;
+  endMinutes: number;
+};
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 const OverlayPlugin = registerPlugin("OverlayPlugin");
@@ -43,13 +53,176 @@ function App() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   // permissionsChecked: false until the FIRST live checkPermission() call completes
   const [permissionsChecked, setPermissionsChecked] = useState(false);
+  const calendarRefs = useRef<{[key: string]: any}>({});
+  const [activeCalendarId, setActiveCalendarId] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"visual" | "voice">("visual");
   const [voiceFrequency, setVoiceFrequency] = useState<number>(3600000);
-  const [voiceStartHour, setVoiceStartHour] = useState<number>(9);
-  const [voiceEndHour, setVoiceEndHour] = useState<number>(23);
-  const [voiceActiveDays, setVoiceActiveDays] = useState<number[]>([1,2,3,4,5,6,7]);
+  const [voiceSchedules, setVoiceSchedules] = useState<VoiceSchedule[]>([]);
   const [voiceVolume, setVoiceVolume] = useState<number>(0.5);
+
+  const latestSchedules = useRef(voiceSchedules);
+  latestSchedules.current = voiceSchedules;
+  const latestVisible = useRef(activeCalendarId);
+  latestVisible.current = activeCalendarId;
+  const pendingTimeUpdate = useRef<number | null>(null);
+
+  // ── Click Outside to Close ──
+  useEffect(() => {
+    const handleClickOutside = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.p-datepicker') && !target.closest('.custom-calendar')) {
+        setActiveCalendarId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
+  // ── Invisible Overlay Hijacking (Rapid-Fire) ──
+  useEffect(() => {
+    let timer: any;
+    let interval: any;
+
+    const stopFiring = () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+
+    const handleShieldDown = (e: Event, type: 'hour' | 'minute', dir: 'up' | 'down', span: HTMLElement) => {
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault(); // Stop PrimeReact from getting it
+      stopFiring();
+
+      const activeKey = latestVisible.current;
+      if (!activeKey) return;
+      const [idxStr, timeType] = activeKey.split('-');
+      const idx = parseInt(idxStr);
+
+      const updateTime = () => {
+        const schedule = latestSchedules.current[idx];
+        if (!schedule) return;
+        
+        let currentMins = pendingTimeUpdate.current !== null 
+            ? pendingTimeUpdate.current 
+            : (timeType === 'start' ? schedule.startMinutes : schedule.endMinutes);
+        
+        let h = Math.floor(currentMins / 60);
+        let m = currentMins % 60;
+
+        if (type === 'hour') {
+           if (dir === 'up') h = (h + 1) % 24;
+           else h = (h - 1 + 24) % 24;
+        } else {
+           if (dir === 'up') m = (m + 1) % 60;
+           else m = (m - 1 + 60) % 60;
+        }
+        
+        const newTotal = h * 60 + m;
+        pendingTimeUpdate.current = newTotal;
+
+        // Update DOM for instant feedback
+        const timepicker = span.closest('.p-timepicker');
+        if (timepicker) {
+           const hSpan = timepicker.querySelector('.p-hour-picker > span');
+           const mSpan = timepicker.querySelector('.p-minute-picker > span');
+           const ampmSpan = timepicker.querySelector('.p-ampm-picker > span');
+           
+           if (hSpan) hSpan.textContent = (h % 12 || 12).toString().padStart(2, '0');
+           if (mSpan) mSpan.textContent = m.toString().padStart(2, '0');
+           if (ampmSpan) ampmSpan.textContent = h >= 12 ? 'PM' : 'AM';
+        }
+      };
+
+      // Initial tap
+      updateTime();
+
+      // Hold
+      timer = setTimeout(() => {
+        interval = setInterval(updateTime, 75);
+      }, 400);
+    };
+
+    const handleGlobalUp = () => {
+      stopFiring();
+      if (pendingTimeUpdate.current !== null) {
+          const activeKey = latestVisible.current;
+          if (activeKey) {
+              const [idxStr, timeType] = activeKey.split('-');
+              const idx = parseInt(idxStr);
+              const newSchedules = [...latestSchedules.current];
+              if (newSchedules[idx]) {
+                  if (timeType === 'start') newSchedules[idx].startMinutes = pendingTimeUpdate.current;
+                  else newSchedules[idx].endMinutes = pendingTimeUpdate.current;
+                  
+                  // Use syncVoiceSchedules (it's accessible in this closure's outer scope)
+                  // @ts-ignore
+                  syncVoiceSchedules(newSchedules);
+              }
+          }
+          pendingTimeUpdate.current = null;
+      }
+    };
+
+    document.addEventListener('pointerup', handleGlobalUp);
+    document.addEventListener('touchend', handleGlobalUp);
+    document.addEventListener('touchcancel', handleGlobalUp);
+    document.addEventListener('mouseup', handleGlobalUp);
+
+    // MutationObserver to inject shields
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.addedNodes.length) {
+          const timepickers = document.querySelectorAll('.p-timepicker:not(.shielded)');
+          timepickers.forEach(tp => {
+            tp.classList.add('shielded');
+            const buttons = tp.querySelectorAll('button');
+            buttons.forEach(btn => {
+               // Skip AM/PM
+               if (btn.closest('.p-ampm-picker')) return;
+               
+               btn.style.position = 'relative';
+               const shield = document.createElement('div');
+               shield.className = 'touch-shield';
+               shield.style.position = 'absolute';
+               shield.style.inset = '0';
+               shield.style.zIndex = '9999';
+               shield.style.userSelect = 'none';
+               // @ts-ignore
+               shield.style.WebkitUserSelect = 'none';
+               // @ts-ignore
+               shield.style.WebkitTouchCallout = 'none';
+               
+               const type = btn.closest('.p-hour-picker') ? 'hour' : 'minute';
+               // If the button is the first element, it's the Up arrow. If not, it's the Down arrow.
+               const dir = (btn === btn.parentElement!.firstElementChild) ? 'up' : 'down';
+               const span = btn.parentElement!.querySelector('span') as HTMLElement;
+
+               shield.addEventListener('touchstart', (e) => handleShieldDown(e, type as 'hour'|'minute', dir as 'up'|'down', span), { passive: false });
+               shield.addEventListener('mousedown', (e) => handleShieldDown(e, type as 'hour'|'minute', dir as 'up'|'down', span));
+               
+               btn.appendChild(shield);
+            });
+          });
+        }
+      }
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      document.removeEventListener('pointerup', handleGlobalUp);
+      document.removeEventListener('touchend', handleGlobalUp);
+      document.removeEventListener('touchcancel', handleGlobalUp);
+      document.removeEventListener('mouseup', handleGlobalUp);
+      observer.disconnect();
+      stopFiring();
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -150,14 +323,26 @@ function App() {
         await Preferences.set({ key: "voiceFrequency", value: "3600000" });
       }
 
-      const vshPref = await Preferences.get({ key: "voiceStartHour" });
-      if (vshPref.value !== null) setVoiceStartHour(parseInt(vshPref.value, 10));
-
-      const vehPref = await Preferences.get({ key: "voiceEndHour" });
-      if (vehPref.value !== null) setVoiceEndHour(parseInt(vehPref.value, 10));
-
-      const vadPref = await Preferences.get({ key: "voiceActiveDays" });
-      if (vadPref.value !== null) setVoiceActiveDays(JSON.parse(vadPref.value));
+      const schedulesPref = await Preferences.get({ key: "voice_schedules" });
+      if (schedulesPref.value !== null) {
+        setVoiceSchedules(JSON.parse(schedulesPref.value));
+      } else {
+        const vshPref = await Preferences.get({ key: "voiceStartHour" });
+        const vehPref = await Preferences.get({ key: "voiceEndHour" });
+        const vadPref = await Preferences.get({ key: "voiceActiveDays" });
+        
+        const startHour = vshPref.value !== null ? parseInt(vshPref.value, 10) : 9;
+        const endHour = vehPref.value !== null ? parseInt(vehPref.value, 10) : 23;
+        const activeDays = vadPref.value !== null ? JSON.parse(vadPref.value) : [1,2,3,4,5,6,7];
+        
+        const initialSchedule: VoiceSchedule = {
+            days: activeDays,
+            startMinutes: startHour * 60,
+            endMinutes: endHour * 60
+        };
+        setVoiceSchedules([initialSchedule]);
+        await Preferences.set({ key: "voice_schedules", value: JSON.stringify([initialSchedule]) });
+      }
 
       const vvPref = await Preferences.get({ key: "voiceVolume" });
       if (vvPref.value !== null) setVoiceVolume(parseFloat(vvPref.value));
@@ -191,9 +376,7 @@ function App() {
             enableHourlyVoice: hourlyVoicePref.value !== null ? hourlyVoicePref.value === "true" : true,
 
             voiceFrequency: vfPref.value !== null ? parseInt(vfPref.value, 10) : 3600000,
-            voiceStartHour: vshPref.value !== null ? parseInt(vshPref.value, 10) : 9,
-            voiceEndHour: vehPref.value !== null ? parseInt(vehPref.value, 10) : 23,
-            voiceActiveDays: vadPref.value !== null ? vadPref.value : "[1,2,3,4,5,6,7]",
+            voiceSchedules: schedulesPref.value !== null ? schedulesPref.value : JSON.stringify([{ days: [1,2,3,4,5,6,7], startMinutes: 540, endMinutes: 1380 }]),
             voiceVolume: vvPref.value !== null ? parseFloat(vvPref.value) : 0.5,
 
             popupSpeed: speedPref.value !== null ? speedPref.value : "medium",
@@ -355,20 +538,26 @@ function App() {
       const val = updates[key];
       await Preferences.set({ key, value: typeof val === 'object' ? JSON.stringify(val) : val.toString() });
       if (key === 'voiceFrequency') setVoiceFrequency(val);
-      if (key === 'voiceStartHour') setVoiceStartHour(val);
-      if (key === 'voiceEndHour') setVoiceEndHour(val);
-      if (key === 'voiceActiveDays') setVoiceActiveDays(val);
       if (key === 'voiceVolume') setVoiceVolume(val);
     }
     if (isAndroid) {
       try { await (OverlayPlugin as any).syncSettings({
         voiceFrequency: updates.voiceFrequency !== undefined ? updates.voiceFrequency : voiceFrequency,
-        voiceStartHour: updates.voiceStartHour !== undefined ? updates.voiceStartHour : voiceStartHour,
-        voiceEndHour: updates.voiceEndHour !== undefined ? updates.voiceEndHour : voiceEndHour,
-        voiceActiveDays: updates.voiceActiveDays !== undefined ? JSON.stringify(updates.voiceActiveDays) : JSON.stringify(voiceActiveDays),
         voiceVolume: updates.voiceVolume !== undefined ? updates.voiceVolume : voiceVolume
       }); } catch (e) {}
       if (isHourlyVoiceEnabled && updates.voiceFrequency !== undefined) {
+        try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
+      }
+    }
+  };
+
+  const syncVoiceSchedules = async (newSchedules: VoiceSchedule[]) => {
+    setVoiceSchedules(newSchedules);
+    const val = JSON.stringify(newSchedules);
+    await Preferences.set({ key: "voice_schedules", value: val });
+    if (isAndroid) {
+      try { await (OverlayPlugin as any).syncSettings({ voiceSchedules: val }); } catch (e) {}
+      if (isHourlyVoiceEnabled) {
         try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
       }
     }
@@ -502,11 +691,19 @@ function App() {
   }
 
   return (
-    <div className={`glass-container ${isRtl ? "rtl" : "ltr"}`}>
+    <div className={`glass-container ${isRtl ? "rtl" : "ltr"} ${activeTab === "voice" && isHourlyVoiceEnabled ? "voice-mode" : "visual-mode"}`}>
+      {/* ── Language Selector ── */}
+      <div className="onboarding-lang-container" onClick={() => changeLanguage(i18n.language === "ar" ? "en" : "ar")} style={{ position: 'absolute', insetBlockStart: '20px', insetInlineEnd: '20px', marginTop: 0 }}>
+        <span className="lang-label-target">{isRtl ? "EN" : "AR"}</span>
+        <button className="onboarding-lang-btn" aria-label="Toggle language">
+          🌐
+        </button>
+      </div>
+
       {/* ── Header ── */}
       <div className="app-header">
         <h1>{t("app_title")}</h1>
-        <p className="description">{t("salah_desc")}</p>
+        {/* <p className="description">{t("salah_desc")}</p> */}
         <div>
           <h4 className="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</h4>
           <span className="quran">
@@ -537,27 +734,6 @@ function App() {
 
         {activeTab === "visual" && (
           <div className="tab-content">
-            {/* Language */}
-            <div className="action-row">
-              <div className="action-text">
-                <h3 className="action-title">{t("language")}</h3>
-              </div>
-              <div className="lang-toggle">
-                <button
-                  className={`lang-btn ${i18n.language === "ar" ? "active" : ""}`}
-                  onClick={() => changeLanguage("ar")}
-                >
-                  {t("arabic")}
-                </button>
-                <button
-                  className={`lang-btn ${i18n.language === "en" ? "active" : ""}`}
-                  onClick={() => changeLanguage("en")}
-                >
-                  {t("english")}
-                </button>
-              </div>
-            </div>
-
             {/* Popup Speed */}
             {!isIos && (
               <div className="action-row">
@@ -726,59 +902,215 @@ function App() {
                     onChange={(e) => syncVoiceSettings({ voiceFrequency: Number(e.target.value) })}
                     className="speed-dropdown"
                   >
-                    <option value="120000">{isRtl ? "دقيقتين" : "2 Mins"}</option>
                     <option value="1800000">{isRtl ? "30 دقيقة" : "30 Mins"}</option>
                     <option value="3600000">{isRtl ? "ساعة واحدة" : "1 Hour"}</option>
                     <option value="7200000">{isRtl ? "ساعتان" : "2 Hours"}</option>
                   </select>
                 </div>
-
-                <div className="control-item row-layout">
-                  <label>{isRtl ? "ساعات العمل" : "Active Hours"}</label>
-                  <div className="time-pickers">
-                    <select 
-                      value={voiceStartHour} 
-                      onChange={(e) => syncVoiceSettings({ voiceStartHour: parseInt(e.target.value, 10) })}
-                      className="speed-dropdown tiny-select"
-                    >
-                      {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{i}:00</option>)}
-                    </select>
-                    <span className="time-sep"> - </span>
-                    <select 
-                      value={voiceEndHour} 
-                      onChange={(e) => syncVoiceSettings({ voiceEndHour: parseInt(e.target.value, 10) })}
-                      className="speed-dropdown tiny-select"
-                    >
-                      {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{i}:00</option>)}
-                    </select>
-                  </div>
-                </div>
+                <hr style={{ border: 'none', borderBottom: '1px solid var(--border-mid)', margin: '0' }} />
 
                 <div className="control-item col-layout">
-                  <label>{isRtl ? "أيام العمل" : "Active Days"}</label>
-                  <div className="days-row">
-                    {[
-                      { val: 1, ar: "أح", en: "Su" },
-                      { val: 2, ar: "إث", en: "Mo" },
-                      { val: 3, ar: "ثل", en: "Tu" },
-                      { val: 4, ar: "أر", en: "We" },
-                      { val: 5, ar: "خم", en: "Th" },
-                      { val: 6, ar: "جم", en: "Fr" },
-                      { val: 7, ar: "سب", en: "Sa" }
-                    ].map(day => (
-                      <button 
-                        key={day.val}
-                        className={`day-btn ${voiceActiveDays.includes(day.val) ? "active" : ""}`}
-                        onClick={() => {
-                          const active = voiceActiveDays.includes(day.val);
-                          const nextDays = active ? voiceActiveDays.filter(d => d !== day.val) : [...voiceActiveDays, day.val];
-                          syncVoiceSettings({ voiceActiveDays: nextDays });
-                        }}
-                      >
-                        {isRtl ? day.ar : day.en}
-                      </button>
-                    ))}
+                  <div className="schedules-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <label style={{ margin: 0 }}>{isRtl ? "فترات عمل التذكير" : "Reminder Active Periods"}</label>
                   </div>
+                  {(() => {
+                    const allSelectedDays = new Set(voiceSchedules.flatMap(s => s.days));
+                    const isAddDisabled = voiceSchedules.length >= 7 || allSelectedDays.size === 7;
+                    
+                    const pausedDays = [1,2,3,4,5,6,7].filter(d => !allSelectedDays.has(d));
+                    let pausedText = "";
+                    if (pausedDays.length > 0) {
+                        const dayNames = {
+                          en: ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                          ar: ["", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+                        };
+                        const separator = isRtl ? " و " : " and ";
+                        const names = pausedDays.map(d => isRtl ? dayNames.ar[d] : dayNames.en[d]);
+                        const joinedNames = names.length > 1 ? names.slice(0, -1).join(", ") + separator + names[names.length - 1] : names[0];
+                        pausedText = isRtl 
+                          ? `الإشعارات الصوتية متوقفة يوم ${joinedNames}.` 
+                          : `Voice reminders are paused on ${joinedNames}.`;
+                    }
+
+                    return (
+                      <>
+                        {voiceSchedules.map((schedule, idx) => {
+                          const startTime = new Date();
+                    startTime.setHours(Math.floor(schedule.startMinutes / 60), schedule.startMinutes % 60, 0, 0);
+                    const endTime = new Date();
+                    endTime.setHours(Math.floor(schedule.endMinutes / 60), schedule.endMinutes % 60, 0, 0);
+
+                    return (
+                      <div key={idx} className="schedule-slot" dir="ltr" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '12px', marginBottom: '10px' }}>
+                        <div className="time-pickers" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px', justifyContent: 'center' }}>
+                          <Calendar 
+                            visible={activeCalendarId === `${idx}-start`}
+                            onVisibleChange={(e) => setActiveCalendarId(e.visible ? `${idx}-start` : null)}
+                            value={startTime} 
+                            onChange={(e) => {
+                                if (e.value) {
+                                    let newMins = e.value.getHours() * 60 + e.value.getMinutes();
+                                    let endMins = voiceSchedules[idx].endMinutes;
+                                    
+                                    if (newMins >= endMins) {
+                                        // Auto-adjust end time to be 1 hour ahead, max 11:59 PM
+                                        endMins = Math.min(newMins + 60, 1439);
+                                        // If still invalid (e.g. start is 11:59 PM), clamp start time
+                                        if (newMins >= endMins) {
+                                            newMins = endMins - 1;
+                                        }
+                                    }
+                                    
+                                    const newSchedules = [...voiceSchedules];
+                                    newSchedules[idx] = { ...newSchedules[idx], startMinutes: newMins, endMinutes: endMins };
+                                    syncVoiceSchedules(newSchedules);
+                                }
+                            }} 
+                            timeOnly 
+                            hourFormat="12" 
+                            readOnlyInput
+                            locale="en"
+                            panelClassName="ltr-calendar-panel start-calendar-popup"
+                            footerTemplate={() => (
+                                <button className="calendar-set-btn" onClick={(e) => { e.preventDefault(); setActiveCalendarId(null); }} style={{width: '100%', padding: '12px', background: 'var(--gold-mid)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 'bold'}}>
+                                    Set
+                                </button>
+                            )}
+                            className="custom-calendar"
+                          />
+                          <i className="pi pi-arrow-right time-sep" style={{ color: 'var(--gold-mid)', fontSize: '1rem', margin: '0 5px' }}></i>
+                          <Calendar 
+                            visible={activeCalendarId === `${idx}-end`}
+                            onVisibleChange={(e) => setActiveCalendarId(e.visible ? `${idx}-end` : null)}
+                            value={endTime} 
+                            onChange={(e) => {
+                                if (e.value) {
+                                    let newMins = e.value.getHours() * 60 + e.value.getMinutes();
+                                    
+                                    // The Midnight (12:00 AM) Exception
+                                    if (newMins === 0) {
+                                        newMins = 1439; // Secretly convert to 11:59 PM
+                                    }
+
+                                    let startMins = voiceSchedules[idx].startMinutes;
+                                    if (newMins <= startMins) {
+                                        // Auto-adjust start time to be 1 hour behind, min 12:00 AM
+                                        startMins = Math.max(newMins - 60, 0);
+                                        if (newMins <= startMins) {
+                                            newMins = startMins + 1;
+                                        }
+                                    }
+
+                                    const newSchedules = [...voiceSchedules];
+                                    newSchedules[idx] = { ...newSchedules[idx], startMinutes: startMins, endMinutes: newMins };
+                                    syncVoiceSchedules(newSchedules);
+                                }
+                            }} 
+                            timeOnly 
+                            hourFormat="12" 
+                            readOnlyInput
+                            locale="en"
+                            panelClassName="ltr-calendar-panel end-calendar-popup"
+                            footerTemplate={() => (
+                                <button className="calendar-set-btn" onClick={(e) => { e.preventDefault(); setActiveCalendarId(null); }} style={{width: '100%', padding: '12px', background: 'var(--gold-mid)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 'bold'}}>
+                                    Set
+                                </button>
+                            )}
+                            className="custom-calendar"
+                          />
+                          {voiceSchedules.length > 1 && (
+                            <button 
+                              onClick={() => {
+                                const newSchedules = [...voiceSchedules];
+                                newSchedules.splice(idx, 1);
+                                syncVoiceSchedules(newSchedules);
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#ff4444', fontSize: '20px', cursor: 'pointer', padding: '0 5px' }}
+                            >
+                              <i className="pi pi-times-circle"></i>
+                            </button>
+                          )}
+                        </div>
+                        <div className="days-row" style={{ justifyContent: 'center' }}>
+                          {[
+                            { val: 1, ar: "أح", en: "Su" },
+                            { val: 2, ar: "إث", en: "Mo" },
+                            { val: 3, ar: "ثل", en: "Tu" },
+                            { val: 4, ar: "أر", en: "We" },
+                            { val: 5, ar: "خم", en: "Th" },
+                            { val: 6, ar: "جم", en: "Fr" },
+                            { val: 7, ar: "سب", en: "Sa" }
+                          ].map(day => {
+                            const isSelectedInThisCard = schedule.days.includes(day.val);
+                            const isSelectedInOtherCard = !isSelectedInThisCard && allSelectedDays.has(day.val);
+
+                            return (
+                              <button 
+                                key={day.val}
+                                className={`day-btn ${isSelectedInThisCard ? "active" : ""}`}
+                                disabled={isSelectedInOtherCard}
+                                style={{ opacity: isSelectedInOtherCard ? 0.3 : 1, cursor: isSelectedInOtherCard ? 'not-allowed' : 'pointer' }}
+                                onClick={() => {
+                                  const active = schedule.days.includes(day.val);
+                                  // Prevent creating empty "ghost" cards
+                                  if (active && schedule.days.length === 1) return;
+                                  const nextDays = active ? schedule.days.filter(d => d !== day.val) : [...schedule.days, day.val];
+                                  const newSchedules = [...voiceSchedules];
+                                  newSchedules[idx] = { ...newSchedules[idx], days: nextDays };
+                                  syncVoiceSchedules(newSchedules);
+                                }}
+                              >
+                                {day.en}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {pausedDays.length > 0 && (
+                    <p style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--text-secondary)',
+                      textAlign: 'center',
+                      margin: '10px 0',
+                      fontStyle: 'italic',
+                      lineHeight: '1.4'
+                    }}>
+                      {pausedText}
+                    </p>
+                  )}
+
+                  <button 
+                    className="add-schedule-btn"
+                    disabled={isAddDisabled}
+                    onClick={() => {
+                        const availableDays = [1,2,3,4,5,6,7].filter(d => !allSelectedDays.has(d));
+                        const newSchedules = [...voiceSchedules, { days: availableDays, startMinutes: 540, endMinutes: 1380 }];
+                        syncVoiceSchedules(newSchedules);
+                    }}
+                    style={{ 
+                        background: 'transparent', 
+                        border: isAddDisabled ? 'none' : '1px dashed var(--gold-primary)', 
+                        color: isAddDisabled ? 'rgba(255, 215, 0, 0.2)' : 'var(--gold-primary)', 
+                        padding: '10px', 
+                        borderRadius: '12px', 
+                        cursor: isAddDisabled ? 'not-allowed' : 'pointer', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '8px', 
+                        marginTop: '5px' 
+                    }}
+                  >
+                    <i className="pi pi-plus"></i>
+                    {isRtl ? "إضافة فترة أخرى" : "Add another period"}
+                  </button>
+                  <hr style={{ border: 'none', borderBottom: '1px solid var(--border-mid)', margin: '0' }} />
+                  </>
+                );
+              })()}
                 </div>
 
                 <div className="control-item col-layout">

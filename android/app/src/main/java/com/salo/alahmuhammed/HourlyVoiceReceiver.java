@@ -10,6 +10,8 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.Calendar;
 
 public class HourlyVoiceReceiver extends BroadcastReceiver {
@@ -30,9 +32,7 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
             android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
             android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
 
-            int startHour = prefs.getInt("voice_start_hour", 9);
-            int endHour = prefs.getInt("voice_end_hour", 23);
-            String activeDaysStr = prefs.getString("voice_active_days", "[1,2,3,4,5,6,7]");
+            String voiceSchedulesJson = prefs.getString("voice_schedules", "[{\"days\":[1,2,3,4,5,6,7],\"startMinutes\":540,\"endMinutes\":1380}]");
             float volume = prefs.getFloat("voice_volume", 0.5f);
             if (volume > 1.0f) {
                 volume = volume / 100.0f;
@@ -40,19 +40,51 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
 
             Calendar calendar = Calendar.getInstance();
             int hourOfDay = calendar.get(Calendar.HOUR_OF_DAY);
+            int minute = calendar.get(Calendar.MINUTE);
             int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK); // 1=Sun, 7=Sat
+            int currentMinutes = hourOfDay * 60 + minute;
 
-            Log.i(TAG, "Current hour detected (hourOfDay = " + hourOfDay + ", dayOfWeek = " + dayOfWeek + ")");
+            Log.i(TAG, "Current time detected (dayOfWeek = " + dayOfWeek + ", currentMinutes = " + currentMinutes + ")");
 
-            if (!activeDaysStr.contains(String.valueOf(dayOfWeek))) {
-                Log.i(TAG, "Skipping because: Day " + dayOfWeek + " is disabled.");
-                if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-                pendingResult.finish();
-                return;
+            boolean isInValidWindow = false;
+
+            try {
+                JSONArray schedules = new JSONArray(voiceSchedulesJson);
+                for (int i = 0; i < schedules.length(); i++) {
+                    JSONObject schedule = schedules.getJSONObject(i);
+                    JSONArray days = schedule.getJSONArray("days");
+                    boolean dayMatches = false;
+                    for (int j = 0; j < days.length(); j++) {
+                        if (days.getInt(j) == dayOfWeek) {
+                            dayMatches = true;
+                            break;
+                        }
+                    }
+
+                    if (dayMatches) {
+                        int startMinutes = schedule.getInt("startMinutes");
+                        int endMinutes = schedule.getInt("endMinutes");
+                        
+                        if (startMinutes <= endMinutes) {
+                            if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+                                isInValidWindow = true;
+                                break;
+                            }
+                        } else {
+                            // Wraps past midnight
+                            if (currentMinutes >= startMinutes || currentMinutes <= endMinutes) {
+                                isInValidWindow = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing voice_schedules: " + e.getMessage());
             }
 
-            if (hourOfDay < startHour || hourOfDay > endHour) {
-                Log.i(TAG, "Skipping because: Failed the " + startHour + ":00 - " + endHour + ":00 window check.");
+            if (!isInValidWindow) {
+                Log.i(TAG, "Current time outside scheduled active windows for today. Skipping playback.");
                 if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
                 pendingResult.finish();
                 return;
@@ -66,7 +98,7 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
                 return;
             }
 
-            Log.i(TAG, "Passed the 9:00 AM - 11:00 PM window check. Preparing audio.");
+            Log.i(TAG, "Passed the scheduled window check. Preparing audio.");
 
             MediaPlayer mediaPlayer = new MediaPlayer();
             
