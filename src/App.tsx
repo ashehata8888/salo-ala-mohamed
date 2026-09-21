@@ -69,7 +69,7 @@ function App() {
   latestVisible.current = activeCalendarId;
   const latestTempSchedules = useRef(tempVoiceSchedules);
   latestTempSchedules.current = tempVoiceSchedules;
-  const pendingTimeUpdate = useRef<number | null>(null);
+  const pendingTimeUpdate = useRef<{ startMinutes: number, endMinutes: number } | null>(null);
 
   const closeCalendarRef = useRef<() => void>();
   closeCalendarRef.current = () => {
@@ -123,6 +123,7 @@ function App() {
   useEffect(() => {
     let timer: any;
     let interval: any;
+    let lastFireTime = 0;
 
     const stopFiring = () => {
       clearTimeout(timer);
@@ -131,7 +132,13 @@ function App() {
 
     const handleShieldDown = (e: Event, type: 'hour' | 'minute', dir: 'up' | 'down', span: HTMLElement) => {
       e.stopPropagation();
+      e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault(); // Stop PrimeReact from getting it
+      
+      const now = Date.now();
+      if (now - lastFireTime < 50) return; // Deduplicate ghost events
+      lastFireTime = now;
+
       stopFiring();
 
       const activeKey = latestVisible.current;
@@ -145,7 +152,7 @@ function App() {
         if (!schedule) return;
         
         let currentMins = pendingTimeUpdate.current !== null 
-            ? pendingTimeUpdate.current 
+            ? (timeType === 'start' ? pendingTimeUpdate.current.startMinutes : pendingTimeUpdate.current.endMinutes)
             : (timeType === 'start' ? schedule.startMinutes : schedule.endMinutes);
         
         let h = Math.floor(currentMins / 60);
@@ -160,19 +167,46 @@ function App() {
         }
         
         const newTotal = h * 60 + m;
-        pendingTimeUpdate.current = newTotal;
+        
+        let newStart = timeType === 'start' ? newTotal : (pendingTimeUpdate.current ? pendingTimeUpdate.current.startMinutes : schedule.startMinutes);
+        let newEnd = timeType === 'end' ? newTotal : (pendingTimeUpdate.current ? pendingTimeUpdate.current.endMinutes : schedule.endMinutes);
+        
+        if (timeType === 'start') {
+            if (newStart >= newEnd) {
+                newEnd = Math.min(newStart + 60, 1439);
+                if (newStart >= newEnd) newStart = newEnd - 1;
+            }
+        } else {
+            if (newEnd === 0) newEnd = 1439;
+            if (newEnd <= newStart) {
+                newStart = Math.max(newEnd - 60, 0);
+                if (newEnd <= newStart) newEnd = newStart + 1;
+            }
+        }
+        
+        pendingTimeUpdate.current = { startMinutes: newStart, endMinutes: newEnd };
 
-        // Update DOM for instant feedback
+        // Update DOM for instant feedback (only for the active picker we are touching)
         const timepicker = span.closest('.p-timepicker');
         if (timepicker) {
+           const activeMins = timeType === 'start' ? newStart : newEnd;
+           const activeH = Math.floor(activeMins / 60);
+           const activeM = activeMins % 60;
+           
            const hSpan = timepicker.querySelector('.p-hour-picker > span');
            const mSpan = timepicker.querySelector('.p-minute-picker > span');
            const ampmSpan = timepicker.querySelector('.p-ampm-picker > span');
            
-           if (hSpan) hSpan.textContent = (h % 12 || 12).toString().padStart(2, '0');
-           if (mSpan) mSpan.textContent = m.toString().padStart(2, '0');
-           if (ampmSpan) ampmSpan.textContent = h >= 12 ? 'PM' : 'AM';
+           if (hSpan) hSpan.textContent = (activeH % 12 || 12).toString().padStart(2, '0');
+           if (mSpan) mSpan.textContent = activeM.toString().padStart(2, '0');
+           if (ampmSpan) ampmSpan.textContent = activeH >= 12 ? 'PM' : 'AM';
         }
+        
+        // Push intermediate changes to React so secondary UI reflects boundary shifts instantly
+        const tempNew = JSON.parse(JSON.stringify(currentSchedules));
+        tempNew[idx].startMinutes = newStart;
+        tempNew[idx].endMinutes = newEnd;
+        setTempVoiceSchedules(tempNew);
       };
 
       // Initial tap
@@ -189,13 +223,13 @@ function App() {
       if (pendingTimeUpdate.current !== null) {
           const activeKey = latestVisible.current;
           if (activeKey) {
-              const [idxStr, timeType] = activeKey.split('-');
+              const [idxStr] = activeKey.split('-');
               const idx = parseInt(idxStr);
               const currentSchedules = latestTempSchedules.current || latestSchedules.current;
               const newSchedules = JSON.parse(JSON.stringify(currentSchedules));
               if (newSchedules[idx]) {
-                  if (timeType === 'start') newSchedules[idx].startMinutes = pendingTimeUpdate.current;
-                  else newSchedules[idx].endMinutes = pendingTimeUpdate.current;
+                  newSchedules[idx].startMinutes = pendingTimeUpdate.current.startMinutes;
+                  newSchedules[idx].endMinutes = pendingTimeUpdate.current.endMinutes;
                   
                   // Update temporary state instead of syncing instantly
                   // @ts-ignore
@@ -223,27 +257,29 @@ function App() {
                // Skip AM/PM
                if (btn.closest('.p-ampm-picker')) return;
                
-               btn.style.position = 'relative';
-               const shield = document.createElement('div');
-               shield.className = 'touch-shield';
-               shield.style.position = 'absolute';
-               shield.style.inset = '0';
-               shield.style.zIndex = '9999';
-               shield.style.userSelect = 'none';
+               btn.style.userSelect = 'none';
                // @ts-ignore
-               shield.style.WebkitUserSelect = 'none';
+               btn.style.WebkitUserSelect = 'none';
                // @ts-ignore
-               shield.style.WebkitTouchCallout = 'none';
+               btn.style.WebkitTouchCallout = 'none';
                
                const type = btn.closest('.p-hour-picker') ? 'hour' : 'minute';
                // If the button is the first element, it's the Up arrow. If not, it's the Down arrow.
                const dir = (btn === btn.parentElement!.firstElementChild) ? 'up' : 'down';
                const span = btn.parentElement!.querySelector('span') as HTMLElement;
 
-               shield.addEventListener('touchstart', (e) => handleShieldDown(e, type as 'hour'|'minute', dir as 'up'|'down', span), { passive: false });
-               shield.addEventListener('mousedown', (e) => handleShieldDown(e, type as 'hour'|'minute', dir as 'up'|'down', span));
+               // Attach directly to the button element in the capture phase to intercept before React
+               const downHandler = (e: Event) => handleShieldDown(e, type as 'hour'|'minute', dir as 'up'|'down', span);
+               btn.addEventListener('pointerdown', downHandler, { capture: true });
+               btn.addEventListener('touchstart', downHandler, { passive: false, capture: true });
+               btn.addEventListener('mousedown', downHandler, { capture: true });
                
-               btn.appendChild(shield);
+               // Also capture and stop 'click' so PrimeReact ignores any residual events
+               btn.addEventListener('click', (e) => { 
+                   e.stopPropagation(); 
+                   e.stopImmediatePropagation(); 
+                   if (e.cancelable) e.preventDefault(); 
+               }, { capture: true });
             });
           });
         }
