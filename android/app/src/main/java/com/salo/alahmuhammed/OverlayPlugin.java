@@ -11,8 +11,13 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.util.Log;
+
 @CapacitorPlugin(name = "OverlayPlugin")
 public class OverlayPlugin extends Plugin {
+    private MediaPlayer previewPlayer;
 
     @PluginMethod
     public void requestPermission(PluginCall call) {
@@ -214,7 +219,7 @@ public class OverlayPlugin extends Plugin {
         Intent intent = new Intent(getContext(), HourlyVoiceReceiver.class);
         intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
         intent.setPackage(getContext().getPackageName());
-        int flags = android.app.PendingIntent.FLAG_CANCEL_CURRENT;
+        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
         }
@@ -234,7 +239,7 @@ public class OverlayPlugin extends Plugin {
         Intent intent = new Intent(getContext(), HourlyVoiceReceiver.class);
         intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
         intent.setPackage(getContext().getPackageName());
-        int flags = android.app.PendingIntent.FLAG_CANCEL_CURRENT;
+        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
         }
@@ -248,5 +253,69 @@ public class OverlayPlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("success", true);
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void playPreviewSound(PluginCall call) {
+        float volume = call.getFloat("volume", 0.5f);
+        if (volume > 1.0f) {
+            volume = volume / 100.0f;
+        }
+
+        try {
+            if (previewPlayer != null) {
+                if (previewPlayer.isPlaying()) {
+                    previewPlayer.stop();
+                }
+                previewPlayer.release();
+                previewPlayer = null;
+            }
+
+            previewPlayer = new MediaPlayer();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build();
+                previewPlayer.setAudioAttributes(audioAttributes);
+            }
+
+            android.net.Uri soundUri = android.net.Uri.parse("android.resource://" + getContext().getPackageName() + "/" + R.raw.sali_voice);
+            previewPlayer.setDataSource(getContext(), soundUri);
+
+            previewPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                @Override
+                public void onCompletion(MediaPlayer mp) {
+                    mp.release();
+                    previewPlayer = null;
+                }
+            });
+
+            previewPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                @Override
+                public boolean onError(MediaPlayer mp, int what, int extra) {
+                    Log.e("OverlayPlugin", "MediaPlayer error during preview: what=" + what + " extra=" + extra);
+                    mp.release();
+                    previewPlayer = null;
+                    return true;
+                }
+            });
+
+            previewPlayer.prepare();
+            previewPlayer.setVolume(volume, volume);
+            previewPlayer.start();
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e("OverlayPlugin", "Preview audio failed: " + e.getMessage(), e);
+            if (previewPlayer != null) {
+                previewPlayer.release();
+                previewPlayer = null;
+            }
+            call.reject("Audio preview failed", e);
+        }
     }
 }

@@ -102,52 +102,51 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
 
             MediaPlayer mediaPlayer = new MediaPlayer();
             
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build();
-                mediaPlayer.setAudioAttributes(audioAttributes);
-            }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build();
+                    mediaPlayer.setAudioAttributes(audioAttributes);
+                }
 
-            AssetFileDescriptor afd = context.getResources().openRawResourceFd(R.raw.sali_voice);
-            if (afd == null) {
-                Log.i(TAG, "Skipping because: Failed to open raw resource fd for sali_voice");
+                android.net.Uri soundUri = android.net.Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.sali_voice);
+                mediaPlayer.setDataSource(context, soundUri);
+
+                mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                    @Override
+                    public void onCompletion(MediaPlayer mp) {
+                        Log.i(TAG, "Playback completed. Releasing MediaPlayer and finishing PendingResult.");
+                        mp.release();
+                        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+                        pendingResult.finish();
+                    }
+                });
+
+                mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                    @Override
+                    public boolean onError(MediaPlayer mp, int what, int extra) {
+                        Log.e(TAG, "MediaPlayer error occurred (what=" + what + ", extra=" + extra + "). Cleaning up.");
+                        mp.release();
+                        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+                        pendingResult.finish();
+                        return true; // Indicates we handled the error
+                    }
+                });
+
+                mediaPlayer.prepare();
+                Log.i(TAG, "Applying volume: " + volume);
+                mediaPlayer.setVolume(volume, volume);
+                Log.i(TAG, "Calling MediaPlayer.start() with volume " + volume + "...");
+                mediaPlayer.start();
+                Log.i(TAG, "Audio playback started successfully.");
+            } catch (Exception e) {
+                Log.e(TAG, "MediaPlayer setup failed: " + e.getMessage(), e);
                 mediaPlayer.release();
                 if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
                 pendingResult.finish();
-                return;
             }
-            mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-            afd.close();
-
-            mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                @Override
-                public void onCompletion(MediaPlayer mp) {
-                    Log.i(TAG, "Playback completed. Releasing MediaPlayer and finishing PendingResult.");
-                    mp.release();
-                    if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-                pendingResult.finish();
-                }
-            });
-
-            mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-                @Override
-                public boolean onError(MediaPlayer mp, int what, int extra) {
-                    Log.e(TAG, "MediaPlayer error occurred (what=" + what + ", extra=" + extra + "). Cleaning up.");
-                    mp.release();
-                    if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-                pendingResult.finish();
-                    return true; // Indicates we handled the error
-                }
-            });
-
-            mediaPlayer.prepare();
-            Log.i(TAG, "Applying volume: " + volume);
-            mediaPlayer.setVolume(volume, volume);
-            Log.i(TAG, "Calling MediaPlayer.start() with volume " + volume + "...");
-            mediaPlayer.start();
-            Log.i(TAG, "Audio playback started successfully.");
             
         } catch (Exception e) {
             Log.e(TAG, "Exception in HourlyVoiceReceiver: " + e.getMessage());
@@ -167,7 +166,7 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
         Intent intent = new Intent(context, HourlyVoiceReceiver.class);
         intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
         intent.setPackage(context.getPackageName());
-        int flags = android.app.PendingIntent.FLAG_CANCEL_CURRENT; // Auto-cancels existing PendingIntent on OS level
+        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT; // Overwrite existing PendingIntent safely
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
         }

@@ -67,7 +67,7 @@ function App() {
   latestVisible.current = activeCalendarId;
   const pendingTimeUpdate = useRef<number | null>(null);
 
-  // ── Click Outside to Close ──
+  // ── Click Outside to Close & Scroll to Close ──
   useEffect(() => {
     const handleClickOutside = (e: Event) => {
       const target = e.target as HTMLElement;
@@ -75,11 +75,23 @@ function App() {
         setActiveCalendarId(null);
       }
     };
+
+    const handleScroll = () => {
+      if (latestVisible.current) {
+        setActiveCalendarId(null);
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
     };
   }, []);
 
@@ -564,9 +576,19 @@ function App() {
   };
 
   const handleTestVolume = (vol: number) => {
-    const audio = new Audio('/sali_voice.mp3');
-    audio.volume = vol;
-    audio.play().catch(e => console.log('Audio preview failed:', e));
+    try {
+      if (isAndroid) {
+        (OverlayPlugin as any).playPreviewSound({ volume: vol }).catch((error: any) => {
+          console.error("Audio bridge failed:", error);
+        });
+      } else {
+        const audio = new Audio('/sali_voice.mp3');
+        audio.volume = vol;
+        audio.play().catch(e => console.error("Audio preview failed:", e));
+      }
+    } catch (error) {
+      console.error("Audio bridge failed:", error);
+    }
   };
 
 
@@ -946,6 +968,7 @@ function App() {
                           <Calendar 
                             visible={activeCalendarId === `${idx}-start`}
                             onVisibleChange={(e) => setActiveCalendarId(e.visible ? `${idx}-start` : null)}
+                            onClick={() => setActiveCalendarId(`${idx}-start`)}
                             value={startTime} 
                             onChange={(e) => {
                                 if (e.value) {
@@ -982,6 +1005,7 @@ function App() {
                           <Calendar 
                             visible={activeCalendarId === `${idx}-end`}
                             onVisibleChange={(e) => setActiveCalendarId(e.visible ? `${idx}-end` : null)}
+                            onClick={() => setActiveCalendarId(`${idx}-end`)}
                             value={endTime} 
                             onChange={(e) => {
                                 if (e.value) {
