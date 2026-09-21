@@ -61,24 +61,48 @@ function App() {
   const [voiceSchedules, setVoiceSchedules] = useState<VoiceSchedule[]>([]);
   const [voiceVolume, setVoiceVolume] = useState<number>(0.5);
 
+  const [tempVoiceSchedules, setTempVoiceSchedules] = useState<VoiceSchedule[] | null>(null);
+
   const latestSchedules = useRef(voiceSchedules);
   latestSchedules.current = voiceSchedules;
   const latestVisible = useRef(activeCalendarId);
   latestVisible.current = activeCalendarId;
+  const latestTempSchedules = useRef(tempVoiceSchedules);
+  latestTempSchedules.current = tempVoiceSchedules;
   const pendingTimeUpdate = useRef<number | null>(null);
+
+  const closeCalendarRef = useRef<() => void>();
+  closeCalendarRef.current = () => {
+    const activeId = latestVisible.current;
+    if (activeId && latestTempSchedules.current) {
+      syncVoiceSchedules(latestTempSchedules.current);
+    }
+    setActiveCalendarId(null);
+    setTempVoiceSchedules(null);
+    if (activeId && calendarRefs.current[activeId]) {
+      calendarRefs.current[activeId].hide?.();
+    }
+  };
+
+  const openCalendar = (id: string) => {
+    setActiveCalendarId(id);
+    setTempVoiceSchedules(JSON.parse(JSON.stringify(latestSchedules.current)));
+  };
 
   // ── Click Outside to Close & Scroll to Close ──
   useEffect(() => {
     const handleClickOutside = (e: Event) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.p-datepicker') && !target.closest('.custom-calendar')) {
-        setActiveCalendarId(null);
+        if (latestVisible.current) {
+          closeCalendarRef.current?.();
+        }
       }
     };
 
     const handleScroll = () => {
       if (latestVisible.current) {
-        setActiveCalendarId(null);
+        closeCalendarRef.current?.();
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
@@ -116,7 +140,8 @@ function App() {
       const idx = parseInt(idxStr);
 
       const updateTime = () => {
-        const schedule = latestSchedules.current[idx];
+        const currentSchedules = latestTempSchedules.current || latestSchedules.current;
+        const schedule = currentSchedules[idx];
         if (!schedule) return;
         
         let currentMins = pendingTimeUpdate.current !== null 
@@ -166,14 +191,15 @@ function App() {
           if (activeKey) {
               const [idxStr, timeType] = activeKey.split('-');
               const idx = parseInt(idxStr);
-              const newSchedules = [...latestSchedules.current];
+              const currentSchedules = latestTempSchedules.current || latestSchedules.current;
+              const newSchedules = JSON.parse(JSON.stringify(currentSchedules));
               if (newSchedules[idx]) {
                   if (timeType === 'start') newSchedules[idx].startMinutes = pendingTimeUpdate.current;
                   else newSchedules[idx].endMinutes = pendingTimeUpdate.current;
                   
-                  // Use syncVoiceSchedules (it's accessible in this closure's outer scope)
+                  // Update temporary state instead of syncing instantly
                   // @ts-ignore
-                  syncVoiceSchedules(newSchedules);
+                  setTempVoiceSchedules(newSchedules);
               }
           }
           pendingTimeUpdate.current = null;
@@ -968,9 +994,11 @@ function App() {
                           : `Voice reminders are paused on ${joinedNames}.`;
                     }
 
+                    const displaySchedules = tempVoiceSchedules || voiceSchedules;
+
                     return (
                       <>
-                        {voiceSchedules.map((schedule, idx) => {
+                        {displaySchedules.map((schedule, idx) => {
                           const startTime = new Date();
                     startTime.setHours(Math.floor(schedule.startMinutes / 60), schedule.startMinutes % 60, 0, 0);
                     const endTime = new Date();
@@ -980,27 +1008,34 @@ function App() {
                       <div key={idx} className="schedule-slot" dir="ltr" style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '12px', marginBottom: '10px' }}>
                         <div className="time-pickers" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px', justifyContent: 'center' }}>
                           <Calendar 
+                            ref={(el) => { if (el) calendarRefs.current[`${idx}-start`] = el; }}
                             visible={activeCalendarId === `${idx}-start`}
-                            onVisibleChange={(e) => setActiveCalendarId(e.visible ? `${idx}-start` : null)}
-                            onClick={() => setActiveCalendarId(`${idx}-start`)}
+                            onVisibleChange={(e) => {
+                                if (!e.visible && activeCalendarId === `${idx}-start`) {
+                                    closeCalendarRef.current?.();
+                                }
+                            }}
+                            onClick={() => {
+                                if (activeCalendarId !== `${idx}-start`) {
+                                    openCalendar(`${idx}-start`);
+                                }
+                            }}
                             value={startTime} 
                             onChange={(e) => {
                                 if (e.value) {
                                     let newMins = e.value.getHours() * 60 + e.value.getMinutes();
-                                    let endMins = voiceSchedules[idx].endMinutes;
+                                    let endMins = displaySchedules[idx].endMinutes;
                                     
                                     if (newMins >= endMins) {
-                                        // Auto-adjust end time to be 1 hour ahead, max 11:59 PM
                                         endMins = Math.min(newMins + 60, 1439);
-                                        // If still invalid (e.g. start is 11:59 PM), clamp start time
                                         if (newMins >= endMins) {
                                             newMins = endMins - 1;
                                         }
                                     }
                                     
-                                    const newSchedules = [...voiceSchedules];
+                                    const newSchedules = JSON.parse(JSON.stringify(displaySchedules));
                                     newSchedules[idx] = { ...newSchedules[idx], startMinutes: newMins, endMinutes: endMins };
-                                    syncVoiceSchedules(newSchedules);
+                                    setTempVoiceSchedules(newSchedules);
                                 }
                             }} 
                             timeOnly 
@@ -1009,7 +1044,7 @@ function App() {
                             locale="en"
                             panelClassName="ltr-calendar-panel start-calendar-popup"
                             footerTemplate={() => (
-                                <button className="calendar-set-btn" onClick={(e) => { e.preventDefault(); setActiveCalendarId(null); }} style={{width: '100%', padding: '12px', background: 'var(--gold-mid)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 'bold'}}>
+                                <button className="calendar-set-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); closeCalendarRef.current?.(); }} style={{width: '100%', padding: '12px', background: 'var(--gold-mid)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 'bold'}}>
                                     Set
                                 </button>
                             )}
@@ -1017,31 +1052,38 @@ function App() {
                           />
                           <i className="pi pi-arrow-right time-sep" style={{ color: 'var(--gold-mid)', fontSize: '1rem', margin: '0 5px' }}></i>
                           <Calendar 
+                            ref={(el) => { if (el) calendarRefs.current[`${idx}-end`] = el; }}
                             visible={activeCalendarId === `${idx}-end`}
-                            onVisibleChange={(e) => setActiveCalendarId(e.visible ? `${idx}-end` : null)}
-                            onClick={() => setActiveCalendarId(`${idx}-end`)}
+                            onVisibleChange={(e) => {
+                                if (!e.visible && activeCalendarId === `${idx}-end`) {
+                                    closeCalendarRef.current?.();
+                                }
+                            }}
+                            onClick={() => {
+                                if (activeCalendarId !== `${idx}-end`) {
+                                    openCalendar(`${idx}-end`);
+                                }
+                            }}
                             value={endTime} 
                             onChange={(e) => {
                                 if (e.value) {
                                     let newMins = e.value.getHours() * 60 + e.value.getMinutes();
                                     
-                                    // The Midnight (12:00 AM) Exception
                                     if (newMins === 0) {
-                                        newMins = 1439; // Secretly convert to 11:59 PM
+                                        newMins = 1439;
                                     }
 
-                                    let startMins = voiceSchedules[idx].startMinutes;
+                                    let startMins = displaySchedules[idx].startMinutes;
                                     if (newMins <= startMins) {
-                                        // Auto-adjust start time to be 1 hour behind, min 12:00 AM
                                         startMins = Math.max(newMins - 60, 0);
                                         if (newMins <= startMins) {
                                             newMins = startMins + 1;
                                         }
                                     }
 
-                                    const newSchedules = [...voiceSchedules];
+                                    const newSchedules = JSON.parse(JSON.stringify(displaySchedules));
                                     newSchedules[idx] = { ...newSchedules[idx], startMinutes: startMins, endMinutes: newMins };
-                                    syncVoiceSchedules(newSchedules);
+                                    setTempVoiceSchedules(newSchedules);
                                 }
                             }} 
                             timeOnly 
@@ -1050,7 +1092,7 @@ function App() {
                             locale="en"
                             panelClassName="ltr-calendar-panel end-calendar-popup"
                             footerTemplate={() => (
-                                <button className="calendar-set-btn" onClick={(e) => { e.preventDefault(); setActiveCalendarId(null); }} style={{width: '100%', padding: '12px', background: 'var(--gold-mid)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 'bold'}}>
+                                <button className="calendar-set-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); closeCalendarRef.current?.(); }} style={{width: '100%', padding: '12px', background: 'var(--gold-mid)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 'bold'}}>
                                     Set
                                 </button>
                             )}
