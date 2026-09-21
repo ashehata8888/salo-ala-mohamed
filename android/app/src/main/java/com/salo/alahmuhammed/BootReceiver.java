@@ -32,20 +32,8 @@ public class BootReceiver extends BroadcastReceiver {
                 
                 String voiceEnabledStr = prefs.getString("enable_hourly_voice", "true"); // default to true
                 if ("true".equals(voiceEnabledStr)) {
-                    Intent voiceIntent = new Intent(context, HourlyVoiceReceiver.class);
-                    int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
-                    }
-                    android.app.PendingIntent pendingIntent = android.app.PendingIntent.getBroadcast(context, 3, voiceIntent, flags);
-                    android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(android.content.Context.ALARM_SERVICE);
-
-                    if (alarmManager != null) {
-                        long interval = 60 * 60 * 1000L; // 1 hour
-                        long triggerAtMillis = System.currentTimeMillis() + interval;
-                        alarmManager.setInexactRepeating(android.app.AlarmManager.RTC_WAKEUP, triggerAtMillis, interval, pendingIntent);
-                        Log.d(TAG, "HourlyVoiceReceiver alarm rescheduled via BootReceiver");
-                    }
+                    HourlyVoiceReceiver.scheduleNextVoiceAlarm(context);
+                    Log.d(TAG, "HourlyVoiceReceiver alarm rescheduled via BootReceiver");
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Failed to reschedule hourly voice: " + e.getMessage());

@@ -287,6 +287,14 @@ function App() {
   // ── Load other preferences ─────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
+      const tabPref = await Preferences.get({ key: "lastActiveTab" });
+      if (tabPref.value !== null) {
+        setActiveTab(tabPref.value as "visual" | "voice");
+      } else {
+        setActiveTab("voice");
+        await Preferences.set({ key: "lastActiveTab", value: "voice" });
+      }
+
       const timerPref = await Preferences.get({ key: "enable_active_timer" });
       if (timerPref.value !== null) {
         setIsTimerEnabled(timerPref.value === "true");
@@ -315,7 +323,7 @@ function App() {
           if (hourlyVoicePref.value === "true") {
             try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
           } else {
-            try { await (OverlayPlugin as any).stopHourlyVoice(); } catch(e) {}
+            try { await (OverlayPlugin as any).cancelHourlyVoice(); } catch(e) {}
           }
         }
       } else {
@@ -605,7 +613,7 @@ function App() {
       if (newValue) {
         try { await (OverlayPlugin as any).startHourlyVoice(); } catch (e) {}
       } else {
-        try { await (OverlayPlugin as any).stopHourlyVoice(); } catch (e) {}
+        try { await (OverlayPlugin as any).cancelHourlyVoice(); } catch (e) {}
       }
     }
   };
@@ -742,13 +750,19 @@ function App() {
         <div className="tabs-container">
           <button 
             className={`tab-btn ${activeTab === "visual" ? "active" : ""}`}
-            onClick={() => setActiveTab("visual")}
+            onClick={() => {
+              setActiveTab("visual");
+              Preferences.set({ key: "lastActiveTab", value: "visual" });
+            }}
           >
             {isRtl ? "التذكير المرئي" : "Visual Reminder"}
           </button>
           <button 
             className={`tab-btn ${activeTab === "voice" ? "active" : ""}`}
-            onClick={() => setActiveTab("voice")}
+            onClick={() => {
+              setActiveTab("voice");
+              Preferences.set({ key: "lastActiveTab", value: "voice" });
+            }}
           >
             {isRtl ? "التذكير الصوتي" : "Voice Reminder"}
           </button>

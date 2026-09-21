@@ -32,8 +32,19 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
             android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
             android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
 
+            String voiceEnabledStr = prefs.getString("enable_hourly_voice", "true");
+            if (!"true".equals(voiceEnabledStr)) {
+                Log.i(TAG, "Alarm disabled via preferences. Skipping playback.");
+                if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+                pendingResult.finish();
+                return;
+            }
+
             String voiceSchedulesJson = prefs.getString("voice_schedules", "[{\"days\":[1,2,3,4,5,6,7],\"startMinutes\":540,\"endMinutes\":1380}]");
-            float volume = prefs.getFloat("voice_volume", 0.5f);
+            float volume = 0.5f;
+            try {
+                volume = Float.parseFloat(prefs.getString("voiceVolume", "0.5"));
+            } catch (Exception e) {}
             if (volume > 1.0f) {
                 volume = volume / 100.0f;
             }
@@ -158,7 +169,10 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
     public static void scheduleNextVoiceAlarm(Context context) {
         android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
         android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
-        long interval = prefs.getLong("voice_frequency", 60 * 60 * 1000L); // Default 1 hour
+        long interval = 60 * 60 * 1000L; // Default 1 hour
+        try {
+            interval = Long.parseLong(prefs.getString("voiceFrequency", "3600000"));
+        } catch (Exception e) {}
 
         android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return;
@@ -173,8 +187,87 @@ public class HourlyVoiceReceiver extends BroadcastReceiver {
         android.app.PendingIntent pendingIntent = android.app.PendingIntent.getBroadcast(context, 3, intent, flags);
         alarmManager.cancel(pendingIntent); // Auto-Clear existing alarm to prevent duplication
 
-        long triggerAtMillis = System.currentTimeMillis() + interval;
-        Log.i(TAG, "Alarm Scheduled for " + (interval / 1000) + " seconds.");
+        long now = System.currentTimeMillis();
+        long targetMillis = now + interval;
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTimeInMillis(targetMillis);
+
+        try {
+            String voiceSchedulesJson = prefs.getString("voice_schedules", "[{\"days\":[1,2,3,4,5,6,7],\"startMinutes\":540,\"endMinutes\":1380}]");
+            org.json.JSONArray schedules = new org.json.JSONArray(voiceSchedulesJson);
+            
+            boolean isValid = false;
+            int dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK);
+            int targetMinutes = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE);
+            
+            for (int i = 0; i < schedules.length(); i++) {
+                org.json.JSONObject schedule = schedules.getJSONObject(i);
+                org.json.JSONArray days = schedule.getJSONArray("days");
+                boolean dayMatches = false;
+                for (int j = 0; j < days.length(); j++) {
+                    if (days.getInt(j) == dayOfWeek) {
+                        dayMatches = true; break;
+                    }
+                }
+                if (dayMatches) {
+                    int startMinutes = schedule.getInt("startMinutes");
+                    int endMinutes = schedule.getInt("endMinutes");
+                    if (startMinutes <= endMinutes) {
+                        if (targetMinutes >= startMinutes && targetMinutes <= endMinutes) {
+                            isValid = true; break;
+                        }
+                    } else {
+                        if (targetMinutes >= startMinutes || targetMinutes <= endMinutes) {
+                            isValid = true; break;
+                        }
+                    }
+                }
+            }
+
+            if (!isValid) {
+                long bestNextMillis = Long.MAX_VALUE;
+                for (int dayOffset = 0; dayOffset <= 7; dayOffset++) {
+                    java.util.Calendar checkCal = (java.util.Calendar) cal.clone();
+                    checkCal.add(java.util.Calendar.DAY_OF_YEAR, dayOffset);
+                    int checkDayOfWeek = checkCal.get(java.util.Calendar.DAY_OF_WEEK);
+                    
+                    for (int i = 0; i < schedules.length(); i++) {
+                        org.json.JSONObject schedule = schedules.getJSONObject(i);
+                        org.json.JSONArray days = schedule.getJSONArray("days");
+                        boolean dayMatches = false;
+                        for (int j = 0; j < days.length(); j++) {
+                            if (days.getInt(j) == checkDayOfWeek) {
+                                dayMatches = true; break;
+                            }
+                        }
+                        if (dayMatches) {
+                            int startMinutes = schedule.getInt("startMinutes");
+                            if (dayOffset == 0 && startMinutes <= targetMinutes) {
+                                continue;
+                            }
+                            java.util.Calendar candidateCal = (java.util.Calendar) checkCal.clone();
+                            candidateCal.set(java.util.Calendar.HOUR_OF_DAY, startMinutes / 60);
+                            candidateCal.set(java.util.Calendar.MINUTE, startMinutes % 60);
+                            candidateCal.set(java.util.Calendar.SECOND, 0);
+                            candidateCal.set(java.util.Calendar.MILLISECOND, 0);
+                            
+                            if (candidateCal.getTimeInMillis() < bestNextMillis) {
+                                bestNextMillis = candidateCal.getTimeInMillis();
+                            }
+                        }
+                    }
+                    if (bestNextMillis != Long.MAX_VALUE) {
+                        targetMillis = bestNextMillis;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating next schedule: " + e.getMessage());
+        }
+
+        long triggerAtMillis = targetMillis;
+        Log.i(TAG, "Alarm Scheduled for " + ((triggerAtMillis - now) / 1000) + " seconds.");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms()) {

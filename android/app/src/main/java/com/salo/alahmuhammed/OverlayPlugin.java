@@ -125,9 +125,9 @@ public class OverlayPlugin extends Plugin {
         if (call.hasOption("enableActiveTimer")) editor.putString("enable_active_timer", String.valueOf(call.getBoolean("enableActiveTimer", true)));
         if (call.hasOption("enableHourlyVoice")) editor.putString("enable_hourly_voice", String.valueOf(call.getBoolean("enableHourlyVoice", true)));
         
-        if (call.hasOption("voiceFrequency")) editor.putLong("voice_frequency", call.getInt("voiceFrequency", 3600000));
+        if (call.hasOption("voiceFrequency")) editor.putString("voiceFrequency", String.valueOf(call.getInt("voiceFrequency", 3600000)));
         if (call.hasOption("voiceSchedules")) editor.putString("voice_schedules", call.getString("voiceSchedules", "[{\"days\":[1,2,3,4,5,6,7],\"startMinutes\":540,\"endMinutes\":1380}]"));
-        if (call.hasOption("voiceVolume")) editor.putFloat("voice_volume", call.getDouble("voiceVolume", 0.5).floatValue());
+        if (call.hasOption("voiceVolume")) editor.putString("voiceVolume", String.valueOf(call.getDouble("voiceVolume", 0.5)));
 
         if (call.hasOption("reducePopupFrequency")) editor.putString("reducePopupFrequency", String.valueOf(call.getBoolean("reducePopupFrequency", false)));
         if (call.hasOption("pauseUntil")) editor.putString("pauseUntil", String.valueOf(call.getLong("pauseUntil", 0L)));
@@ -216,17 +216,7 @@ public class OverlayPlugin extends Plugin {
 
     @PluginMethod
     public void startHourlyVoice(PluginCall call) {
-        Intent intent = new Intent(getContext(), HourlyVoiceReceiver.class);
-        intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
-        intent.setPackage(getContext().getPackageName());
-        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
-        }
-        android.app.PendingIntent pendingIntent = android.app.PendingIntent.getBroadcast(getContext(), 3, intent, flags);
-        android.app.AlarmManager alarmManager = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
-
-        // Remove setInexactRepeating and delegate scheduling to HourlyVoiceReceiver
+        // Delegate scheduling to HourlyVoiceReceiver
         HourlyVoiceReceiver.scheduleNextVoiceAlarm(getContext());
 
         JSObject ret = new JSObject();
@@ -235,7 +225,7 @@ public class OverlayPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void stopHourlyVoice(PluginCall call) {
+    public void cancelHourlyVoice(PluginCall call) {
         Intent intent = new Intent(getContext(), HourlyVoiceReceiver.class);
         intent.setAction("com.salo.alahmuhammed.HOURLY_VOICE");
         intent.setPackage(getContext().getPackageName());
@@ -248,6 +238,7 @@ public class OverlayPlugin extends Plugin {
 
         if (alarmManager != null) {
             alarmManager.cancel(pendingIntent);
+            pendingIntent.cancel();
         }
 
         JSObject ret = new JSObject();
