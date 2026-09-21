@@ -186,27 +186,14 @@ function App() {
         
         pendingTimeUpdate.current = { startMinutes: newStart, endMinutes: newEnd };
 
-        // Update DOM for instant feedback (only for the active picker we are touching)
-        const timepicker = span.closest('.p-timepicker');
-        if (timepicker) {
-           const activeMins = timeType === 'start' ? newStart : newEnd;
-           const activeH = Math.floor(activeMins / 60);
-           const activeM = activeMins % 60;
-           
-           const hSpan = timepicker.querySelector('.p-hour-picker > span');
-           const mSpan = timepicker.querySelector('.p-minute-picker > span');
-           const ampmSpan = timepicker.querySelector('.p-ampm-picker > span');
-           
-           if (hSpan) hSpan.textContent = (activeH % 12 || 12).toString().padStart(2, '0');
-           if (mSpan) mSpan.textContent = activeM.toString().padStart(2, '0');
-           if (ampmSpan) ampmSpan.textContent = activeH >= 12 ? 'PM' : 'AM';
-        }
-        
-        // Push intermediate changes to React so secondary UI reflects boundary shifts instantly
-        const tempNew = JSON.parse(JSON.stringify(currentSchedules));
-        tempNew[idx].startMinutes = newStart;
-        tempNew[idx].endMinutes = newEnd;
-        setTempVoiceSchedules(tempNew);
+        // Push intermediate changes to React instantly using functional updates to prevent batching staleness
+        setTempVoiceSchedules(prev => {
+            const current = prev || latestSchedules.current;
+            const tempNew = JSON.parse(JSON.stringify(current));
+            tempNew[idx].startMinutes = newStart;
+            tempNew[idx].endMinutes = newEnd;
+            return tempNew;
+        });
       };
 
       // Initial tap
@@ -216,34 +203,37 @@ function App() {
       timer = setTimeout(() => {
         interval = setInterval(updateTime, 75);
       }, 400);
-    };
 
-    const handleGlobalUp = () => {
-      stopFiring();
-      if (pendingTimeUpdate.current !== null) {
-          const activeKey = latestVisible.current;
-          if (activeKey) {
-              const [idxStr] = activeKey.split('-');
-              const idx = parseInt(idxStr);
-              const currentSchedules = latestTempSchedules.current || latestSchedules.current;
-              const newSchedules = JSON.parse(JSON.stringify(currentSchedules));
-              if (newSchedules[idx]) {
-                  newSchedules[idx].startMinutes = pendingTimeUpdate.current.startMinutes;
-                  newSchedules[idx].endMinutes = pendingTimeUpdate.current.endMinutes;
-                  
-                  // Update temporary state instead of syncing instantly
-                  // @ts-ignore
-                  setTempVoiceSchedules(newSchedules);
-              }
+      // Attach cleanup to both window and the specific target that might get detached
+      const target = e.target as HTMLElement;
+      
+      const cleanup = () => {
+          stopFiring();
+          window.removeEventListener('pointerup', cleanup, { capture: true } as any);
+          window.removeEventListener('touchend', cleanup, { capture: true } as any);
+          window.removeEventListener('touchcancel', cleanup, { capture: true } as any);
+          window.removeEventListener('mouseup', cleanup, { capture: true } as any);
+          if (target) {
+              target.removeEventListener('pointerup', cleanup);
+              target.removeEventListener('touchend', cleanup);
+              target.removeEventListener('touchcancel', cleanup);
+              target.removeEventListener('mouseup', cleanup);
           }
           pendingTimeUpdate.current = null;
+      };
+
+      window.addEventListener('pointerup', cleanup, { capture: true });
+      window.addEventListener('touchend', cleanup, { capture: true });
+      window.addEventListener('touchcancel', cleanup, { capture: true });
+      window.addEventListener('mouseup', cleanup, { capture: true });
+      
+      if (target) {
+          target.addEventListener('pointerup', cleanup);
+          target.addEventListener('touchend', cleanup);
+          target.addEventListener('touchcancel', cleanup);
+          target.addEventListener('mouseup', cleanup);
       }
     };
-
-    document.addEventListener('pointerup', handleGlobalUp);
-    document.addEventListener('touchend', handleGlobalUp);
-    document.addEventListener('touchcancel', handleGlobalUp);
-    document.addEventListener('mouseup', handleGlobalUp);
 
     // MutationObserver to inject shields
     const observer = new MutationObserver((mutations) => {
@@ -289,15 +279,10 @@ function App() {
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => {
-      document.removeEventListener('pointerup', handleGlobalUp);
-      document.removeEventListener('touchend', handleGlobalUp);
-      document.removeEventListener('touchcancel', handleGlobalUp);
-      document.removeEventListener('mouseup', handleGlobalUp);
       observer.disconnect();
       stopFiring();
     };
   }, []);
-
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);

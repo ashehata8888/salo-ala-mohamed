@@ -1565,10 +1565,24 @@ $shimmer-highlight: rgba(255, 255, 255, 0.1);
 
     button {
       color: var(--gold-mid);
+      transition: opacity 0.1s ease, transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
 
-      &:hover {
-        background: rgba(255, 255, 255, 0.05);
+      &:hover, &:focus, &:focus-visible {
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
         color: var(--gold-bright);
+      }
+
+      &:active {
+        background: transparent !important;
+        opacity: 0.6;
+        transform: scale(0.92);
+      }
+
+      /* Force inner icons to pass clicks to this button wrapper */
+      & > * {
+        pointer-events: none !important;
       }
     }
   }
