@@ -51,6 +51,8 @@
                 <action android:name="com.salo.alahmuhammed.RESUME_SERVICE" />
             </intent-filter>
         </receiver>
+        
+        <receiver android:name=".HourlyVoiceReceiver" android:exported="false" android:directBootAware="true" />
     </application>
 
     <!-- Permissions -->

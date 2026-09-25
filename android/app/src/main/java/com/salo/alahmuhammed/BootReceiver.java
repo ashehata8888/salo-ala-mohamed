@@ -25,6 +25,20 @@ public class BootReceiver extends BroadcastReceiver {
             "com.salo.alahmuhammed.RESTART_SERVICE".equals(action) ||
             "com.salo.alahmuhammed.RESUME_SERVICE".equals(action)) {
 
+            // Reschedule hourly voice reminder from Device Protected Storage
+            try {
+                android.content.Context storageContext = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? context.createDeviceProtectedStorageContext() : context;
+                android.content.SharedPreferences prefs = storageContext.getSharedPreferences("CapacitorStorage", android.content.Context.MODE_PRIVATE);
+                
+                String voiceEnabledStr = prefs.getString("enable_hourly_voice", "false");
+                if ("true".equals(voiceEnabledStr)) {
+                    HourlyVoiceReceiver.scheduleNextVoiceAlarm(context);
+                    Log.d(TAG, "HourlyVoiceReceiver alarm rescheduled via BootReceiver");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to reschedule hourly voice: " + e.getMessage());
+            }
+
             // Try direct start first (fastest path)
             try {
                 Intent serviceIntent = new Intent(context, SaloPrayerService.class);
