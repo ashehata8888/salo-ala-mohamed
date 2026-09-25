@@ -33,3 +33,6 @@ fastlane/Preview.html
 
 # Local environment
 .env
+
+# Local release builds (IPA / AAB)
+release-artifacts/
