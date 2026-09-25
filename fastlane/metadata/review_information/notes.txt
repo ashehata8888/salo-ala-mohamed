@@ -1,16 +1,24 @@
 This app does one thing: it gently reminds a Muslim to send Salawat — a short
 blessing on the Prophet Muhammad — throughout their ordinary day. 332 Arabic
-phrases are bundled in the binary so a different one appears each hour. No
-account, no internet, no data collected. Just a quiet reminder.
+phrases are bundled in the binary for the reminders. No account, no internet,
+no data collected. Just a quiet reminder.
+
+The app opens in Arabic — tap the globe button (EN) in the top corner to switch
+to English. The settings have two tabs: "Visual Reminder" and "Voice Reminder".
 
 HOW TO SEE IT
-1) The widget (main feature): long-press the home screen > "+" > search
-   "Salah Reminder" > Add Widget. A new phrase appears every hour.
-2) Hourly reminders: toggle the second row on the main screen and allow the
-   notification prompt. The first one fires at the next whole hour, so nothing
-   appears immediately.
-
-The app opens in Arabic — tap "English" in the Language row to switch.
+1) The widget: long-press the home screen > "+" > search "Salah Reminder" >
+   Add Widget. A new phrase appears every hour.
+2) Hourly reminders (Visual Reminder tab): toggle "Hourly Reminder" and allow
+   the notification prompt. The first one fires at the next whole hour, so
+   nothing appears immediately.
+3) Voice reminder (Voice Reminder tab, NEW in this version, off by default):
+   toggle it on and allow notifications. Tap "Preview sound" to hear the
+   2-second recorded phrase bundled with the app. Scheduled voice reminders are
+   standard local notifications that use this clip as their notification
+   sound, inside the time periods and days the user picks. There is no
+   background audio mode; the ringer switch and ringer volume apply as for any
+   notification.
 
 Please test in Airplane Mode: the app makes no network requests at all. Nothing
 is loaded from a URL, there is no server, no analytics and no ads. iPad is
