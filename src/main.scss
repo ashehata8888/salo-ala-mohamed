@@ -150,6 +150,7 @@ body {
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 80px);
+    max-height: calc(100dvh - 80px);
 
     .settings-section {
       flex: 1;
@@ -167,6 +168,7 @@ body {
       margin-inline-end: -12px;
       // Push the content back so it aligns perfectly without shrinking
       padding-inline-end: 12px;
+      padding-bottom: 30px;
       box-sizing: border-box;
     }
   }
@@ -645,6 +647,13 @@ button {
   padding: 0;
   position: relative;
   overflow: hidden;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+
+  &.exiting {
+    opacity: 0;
+    transform: scale(0.98);
+    pointer-events: none;
+  }
 }
 
 /* 1. The Container: Handles the fixed position on screen */
@@ -814,8 +823,6 @@ button {
   gap: 8px;
   padding: 8px 0;
   margin: 50px 0 20px;
-  /* Crucial: prevents the dots from flipping order in Arabic */
-  direction: ltr !important;
 }
 
 .onboarding-dot {
