@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { App as CapacitorApp } from "@capacitor/app";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface OnboardingFlowProps {
-  initialStep: 0 | 1;
+  isExiting?: boolean;
+  initialStep: 0 | 1 | 2;
   hasPermission: boolean | null;
   isBatteryOptimized: boolean | null;
+  hasExactAlarmPermission: boolean | null;
   checkPermission: () => Promise<void>;
   requestPermission: () => Promise<void>;
   requestBatteryPermission: () => Promise<void>;
+  requestExactAlarmPermission: () => Promise<void>;
   changeLanguage: (lng: string) => Promise<void>;
 }
 
@@ -39,6 +43,43 @@ function OverlaySkeleton({ isRtl }: { isRtl: boolean }) {
           <div
             className="skeleton-bar skeleton-bar--thin"
             style={{ width: "55%" }}
+          />
+        </div>
+        <div className="skeleton-switch skeleton-switch--on">
+          <span className="skeleton-switch-thumb skeleton-switch-thumb--on" />
+        </div>
+        <div className="hand-pointer hand-pointer--overlay" aria-hidden="true">
+          👆
+        </div>
+      </div>
+      <div className="skeleton-row">
+        <div className="skeleton-bar skeleton-bar--icon" />
+        <div className="skeleton-text-group">
+          <div className="skeleton-bar skeleton-bar--medium" />
+        </div>
+        <div className="skeleton-switch">
+          <span className="skeleton-switch-thumb" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Skeleton: Exact Alarm ──────────────────────────────────────────
+function AlarmSkeleton({ isRtl }: { isRtl: boolean }) {
+  const appLabel = isRtl ? "صلِّ على محمد ﷺ" : "Sali Ala Mohamed";
+  return (
+    <div className="skeleton-screen" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="skeleton-header-bar">
+        <div className="skeleton-bar skeleton-bar--short" />
+      </div>
+      <div className="skeleton-row skeleton-row--highlight">
+        <div className="skeleton-bar skeleton-bar--icon skeleton-bar--app-icon" style={{ borderRadius: '50%' }} />
+        <div className="skeleton-text-group">
+          <span className="skeleton-app-label">{appLabel}</span>
+          <div
+            className="skeleton-bar skeleton-bar--thin"
+            style={{ width: "65%" }}
           />
         </div>
         <div className="skeleton-switch skeleton-switch--on">
@@ -111,56 +152,75 @@ function BatterySkeleton({ isRtl }: { isRtl: boolean }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function OnboardingFlow({
+  isExiting,
   initialStep,
   hasPermission,
   isBatteryOptimized,
+  hasExactAlarmPermission,
   checkPermission,
   requestPermission,
   requestBatteryPermission,
+  requestExactAlarmPermission,
   changeLanguage,
 }: OnboardingFlowProps) {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
 
-  const [page, setPage] = useState<0 | 1>(() => initialStep);
+  const [page, setPage] = useState<0 | 1 | 2>(initialStep);
   const [isSliding, setIsSliding] = useState(false);
 
+  // ── Capacitor Lifecycle: Check permissions when returning to foreground ──
+  useEffect(() => {
+    const listener = CapacitorApp.addListener("appStateChange", async ({ isActive }) => {
+      if (isActive) {
+        console.log("[Onboarding] App is active, checking permissions...");
+        await checkPermission();
+      }
+    });
+
+    return () => {
+      listener.then((l) => l.remove());
+    };
+  }, [checkPermission]);
+
   // ── Animation Helper ─────────────────────────────────────────────────────
-  const slideToStepTwo = useCallback(() => {
-    if (isSliding || page === 1) return;
+  const slideToStep = useCallback((step: 1 | 2) => {
+    if (isSliding || page >= step) return;
     setIsSliding(true);
     setTimeout(() => {
-      setPage(1);
+      setPage(step);
       setIsSliding(false);
     }, 400);
   }, [isSliding, page]);
 
-  // ── Step 1 Gatekeeper: Advance only when overlay is granted ──────────────
-  const prevHasPermission = useRef(hasPermission);
+  // ── Step Gatekeeper: Advance when granted ──────────────
   useEffect(() => {
-    if (
-      page === 0 &&
-      hasPermission === true &&
-      prevHasPermission.current !== true
-    ) {
-      slideToStepTwo();
+    // If we are on Step 1 (Overlay) and Overlay is granted
+    if (page === 0 && hasPermission === true) {
+      // Which one is missing next? Alarm or Battery?
+      if (hasExactAlarmPermission !== true) {
+        slideToStep(1);
+      } else if (isBatteryOptimized !== true) {
+        slideToStep(2);
+      }
     }
-    prevHasPermission.current = hasPermission;
-  }, [hasPermission, page, slideToStepTwo]);
-
-  // ── Permission Re-check on App Foreground ────────────────────────────────
-  const pageRef = useRef(page);
-  useEffect(() => {
-    pageRef.current = page;
-  }, [page]);
+    // If we are on Step 2 (Alarm) and Alarm is granted
+    else if (page === 1 && hasExactAlarmPermission === true) {
+      if (isBatteryOptimized !== true) {
+        slideToStep(2);
+      }
+    }
+  }, [hasPermission, hasExactAlarmPermission, isBatteryOptimized, page, slideToStep]);
 
   const toggleLanguage = async () => {
-    await changeLanguage(i18n.language === "ar" ? "en" : "ar");
+    await changeLanguage(isRtl ? "en" : "ar");
   };
 
   const handleAction = async () => {
     if (page === 0) {
       await requestPermission();
+    } else if (page === 1) {
+      await requestExactAlarmPermission();
     } else {
       await requestBatteryPermission();
     }
@@ -189,6 +249,21 @@ export function OnboardingFlow({
       btnIcon: "🔓",
     },
     {
+      title: isRtl ? "إذن التنبيهات" : "Alarms Permission",
+      subtitle: isRtl ? (
+        <>
+          لضمان عمل التذكير الصوتي في وقته المحدد تماماً، يُرجى السماح للتطبيق بضبط التنبيهات.
+        </>
+      ) : (
+        <>
+          To ensure your voice reminders fire exactly on time, allow the app to set alarms.
+        </>
+      ),
+      skeleton: <AlarmSkeleton isRtl={isRtl} />,
+      btnText: isRtl ? "منح إذن التنبيهات" : "Grant Alarm Permission",
+      btnIcon: "🔔",
+    },
+    {
       title: isRtl ? "تحسين البطارية" : "Battery Optimization",
       subtitle: isRtl ? (
         <>
@@ -213,7 +288,7 @@ export function OnboardingFlow({
 
   return (
     <div
-      className={`onboarding-screen ${isRtl ? "rtl" : "ltr"}`}
+      className={`onboarding-screen ${isRtl ? "rtl" : "ltr"} ${isExiting ? "exiting" : ""}`}
       dir={isRtl ? "rtl" : "ltr"}
     >
       {/* ── Language Selector ── */}
@@ -227,11 +302,10 @@ export function OnboardingFlow({
       </div>
 
       {/* ── Progress Indicators ── */}
-      <div className="onboarding-steps" dir="ltr">
-        {[0, 1].map((stepIndex) => (
+      <div className="onboarding-steps" dir={isRtl ? "rtl" : "ltr"}>
+        {[0, 1, 2].map((stepIndex) => (
           <span
             key={stepIndex}
-            /* Logic fix: use the full '--active' and '--done' names */
             className={`onboarding-dot ${
               page === stepIndex ? "onboarding-dot--active" : ""
             } ${page > stepIndex ? "onboarding-dot--done" : ""}`}
@@ -256,9 +330,6 @@ export function OnboardingFlow({
           <span className="onboarding-btn-icon">{current.btnIcon}</span>
           {current.btnText}
         </button>
-        {/* <p className="onboarding-step-label">
-          {isRtl ? `الخطوة ${page + 1} من 2` : `Step ${page + 1} of 2`}
-        </p> */}
       </div>
     </div>
   );

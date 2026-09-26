@@ -43,6 +43,7 @@ function App() {
   const [isBatteryOptimized, setIsBatteryOptimized] = useState<boolean | null>(
     null,
   );
+  const [hasExactAlarmPermission, setHasExactAlarmPermission] = useState<boolean | null>(null);
   const [isTimerEnabled, setIsTimerEnabled] = useState(true);
   const [isHourlyVoiceEnabled, setIsHourlyVoiceEnabled] = useState(false);
   const [popupSpeed, setPopupSpeed] = useState("medium");
@@ -56,10 +57,30 @@ function App() {
   const calendarRefs = useRef<{[key: string]: any}>({});
   const [activeCalendarId, setActiveCalendarId] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"visual" | "voice">("visual");
+  const [activeTab, setActiveTab] = useState<"visual" | "voice">("voice");
   const [voiceFrequency, setVoiceFrequency] = useState<number>(3600000);
   const [voiceSchedules, setVoiceSchedules] = useState<VoiceSchedule[]>([]);
-  const [voiceVolume, setVoiceVolume] = useState<number>(0.5);
+  const [voiceVolume, setVoiceVolume] = useState<number>(0.7);
+
+  const [isExitingOnboarding, setIsExitingOnboarding] = useState(false);
+  const [forceShowOnboarding, setForceShowOnboarding] = useState(false);
+
+  const allGranted = hasPermission === true && hasExactAlarmPermission === true && isBatteryOptimized === true;
+
+  useEffect(() => {
+    if (!isAndroid || !permissionsChecked) return;
+
+    if (allGranted && forceShowOnboarding) {
+      setIsExitingOnboarding(true);
+      setTimeout(() => {
+        setIsExitingOnboarding(false);
+        setForceShowOnboarding(false);
+      }, 400);
+    } else if (!allGranted && !forceShowOnboarding) {
+      setForceShowOnboarding(true);
+      setIsExitingOnboarding(false);
+    }
+  }, [allGranted, forceShowOnboarding, permissionsChecked]);
 
   const [tempVoiceSchedules, setTempVoiceSchedules] = useState<VoiceSchedule[] | null>(null);
 
@@ -327,6 +348,8 @@ function App() {
     const timer = setTimeout(() => {
       setPermissionsChecked(true);
       setHasPermission((prev) => (prev === null ? false : prev));
+      setIsBatteryOptimized((prev) => (prev === null ? false : prev));
+      setHasExactAlarmPermission((prev) => (prev === null ? false : prev));
     }, 4000);
     return () => clearTimeout(timer);
   }, []);
@@ -374,9 +397,12 @@ function App() {
           }
         }
       } else {
-        // Opt-in: existing users should not start hearing audio after an update.
-        setIsHourlyVoiceEnabled(false);
-        await Preferences.set({ key: "enable_hourly_voice", value: "false" });
+        // Voice reminders are now on by default
+        setIsHourlyVoiceEnabled(true);
+        await Preferences.set({ key: "enable_hourly_voice", value: "true" });
+        if (isAndroid) {
+          try { await (OverlayPlugin as any).startHourlyVoice(); } catch(e) {}
+        }
       }
 
       
@@ -392,25 +418,30 @@ function App() {
       if (schedulesPref.value !== null) {
         setVoiceSchedules(JSON.parse(schedulesPref.value));
       } else {
-        const vshPref = await Preferences.get({ key: "voiceStartHour" });
-        const vehPref = await Preferences.get({ key: "voiceEndHour" });
-        const vadPref = await Preferences.get({ key: "voiceActiveDays" });
+        const initialSchedules: VoiceSchedule[] = [
+          {
+            days: [1, 2, 3, 4, 5, 7], // Su, Mo, Tu, We, Th, Sa
+            startMinutes: 8 * 60 + 30, // 08:30 AM
+            endMinutes: 23 * 60 + 59 // 11:59 PM
+          },
+          {
+            days: [6], // Friday
+            startMinutes: 12 * 60, // 12:00 PM
+            endMinutes: 23 * 60 + 59 // 11:59 PM
+          }
+        ];
         
-        const startHour = vshPref.value !== null ? parseInt(vshPref.value, 10) : 9;
-        const endHour = vehPref.value !== null ? parseInt(vehPref.value, 10) : 23;
-        const activeDays = vadPref.value !== null ? JSON.parse(vadPref.value) : [1,2,3,4,5,6,7];
-        
-        const initialSchedule: VoiceSchedule = {
-            days: activeDays,
-            startMinutes: startHour * 60,
-            endMinutes: endHour * 60
-        };
-        setVoiceSchedules([initialSchedule]);
-        await Preferences.set({ key: "voice_schedules", value: JSON.stringify([initialSchedule]) });
+        setVoiceSchedules(initialSchedules);
+        await Preferences.set({ key: "voice_schedules", value: JSON.stringify(initialSchedules) });
       }
 
       const vvPref = await Preferences.get({ key: "voiceVolume" });
-      if (vvPref.value !== null) setVoiceVolume(parseFloat(vvPref.value));
+      if (vvPref.value !== null) {
+        setVoiceVolume(parseFloat(vvPref.value));
+      } else {
+        setVoiceVolume(0.7);
+        await Preferences.set({ key: "voiceVolume", value: "0.7" });
+      }
 
       const pausePref = await Preferences.get({ key: "pauseUntil" });
       if (pausePref.value !== null) {
@@ -441,8 +472,11 @@ function App() {
             enableHourlyVoice: hourlyVoicePref.value === "true",
 
             voiceFrequency: vfPref.value !== null ? parseInt(vfPref.value, 10) : 3600000,
-            voiceSchedules: schedulesPref.value !== null ? schedulesPref.value : JSON.stringify([{ days: [1,2,3,4,5,6,7], startMinutes: 540, endMinutes: 1380 }]),
-            voiceVolume: vvPref.value !== null ? parseFloat(vvPref.value) : 0.5,
+            voiceSchedules: schedulesPref.value !== null ? schedulesPref.value : JSON.stringify([
+              { days: [1, 2, 3, 4, 5, 7], startMinutes: 510, endMinutes: 1439 },
+              { days: [6], startMinutes: 720, endMinutes: 1439 }
+            ]),
+            voiceVolume: vvPref.value !== null ? parseFloat(vvPref.value) : 0.7,
 
             popupSpeed: speedPref.value !== null ? speedPref.value : "medium",
             reducePopupFrequency: reducePref.value === "true",
@@ -484,6 +518,9 @@ function App() {
         OverlayPlugin as any
       ).isBatteryOptimizationIgnored();
       setIsBatteryOptimized(batteryResult.isIgnored);
+
+      const exactAlarmResult = await (OverlayPlugin as any).checkExactAlarmPermission();
+      setHasExactAlarmPermission(exactAlarmResult.granted);
     } catch (e) {
       console.error("Checking permission failed", e);
     }
@@ -751,22 +788,36 @@ function App() {
   }
 
   // Android-only: strict gate — route is derived ONLY from live permission state.
-  // No persisted flag. If either permission is ungranted → onboarding.
-  if (isAndroid && (!hasPermission || isBatteryOptimized === false)) {
-    // initialStep: start at Step 1 (overlay) unless overlay is already verified.
-    const initialStep: 0 | 1 = hasPermission === true ? 1 : 0;
+  // We use forceShowOnboarding to allow for an exit transition.
+  if (isAndroid && forceShowOnboarding) {
+    let initialStep: 0 | 1 | 2 = 0;
+    if (hasPermission === true) {
+      if (hasExactAlarmPermission === true) {
+        initialStep = 2; // Battery is missing
+      } else {
+        initialStep = 1; // Alarm is missing
+      }
+    } else {
+      initialStep = 0; // Overlay is missing
+    }
+
     console.log(
       `[App] Routing to OnboardingFlow — initialStep=${initialStep}`,
-      `| overlay=${hasPermission} | battery_ignored=${isBatteryOptimized}`,
+      `| overlay=${hasPermission} | exact_alarm=${hasExactAlarmPermission} | battery_ignored=${isBatteryOptimized}`,
     );
     return (
       <OnboardingFlow
+        isExiting={isExitingOnboarding}
         initialStep={initialStep}
         hasPermission={hasPermission}
         isBatteryOptimized={isBatteryOptimized}
+        hasExactAlarmPermission={hasExactAlarmPermission}
         checkPermission={checkPermission}
         requestPermission={requestPermission}
         requestBatteryPermission={requestBatteryPermission}
+        requestExactAlarmPermission={async () => {
+          await (OverlayPlugin as any).requestExactAlarmPermission();
+        }}
         changeLanguage={changeLanguage}
       />
     );
@@ -801,15 +852,6 @@ function App() {
       <div className={`settings-section ${isRtl ? "rtl" : "ltr"}`}>
         <div className="tabs-container">
           <button 
-            className={`tab-btn ${activeTab === "visual" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("visual");
-              Preferences.set({ key: "lastActiveTab", value: "visual" });
-            }}
-          >
-            {isRtl ? "التذكير المرئي" : "Visual Reminder"}
-          </button>
-          <button 
             className={`tab-btn ${activeTab === "voice" ? "active" : ""}`}
             onClick={() => {
               setActiveTab("voice");
@@ -817,6 +859,15 @@ function App() {
             }}
           >
             {isRtl ? "التذكير الصوتي" : "Voice Reminder"}
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === "visual" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("visual");
+              Preferences.set({ key: "lastActiveTab", value: "visual" });
+            }}
+          >
+            {isRtl ? "التذكير المرئي" : "Visual Reminder"}
           </button>
         </div>
 
